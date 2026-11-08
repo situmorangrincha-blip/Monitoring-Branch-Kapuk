@@ -33,3 +33,10 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **DAP:** halaman **Editor DAP** layar penuh (menu Editor DAP atau tombol Buka Editor DAP), preview PDF ikut berubah otomatis saat angka diedit, dan satuan Rp / Juta.
 - **Tampilan:** font Quicksand di seluruh web, tombol ukuran huruf (A- / A+) dan satuan (Rp / Juta) di header.
 - **GreenStore / MSS lama dihapus** dari DAP, Rapot, dan daftar upload karena sudah masuk section Market Productivity. Indikator MSS di Rapot sekarang bobot 10.
+
+## Editor DAP di halaman sendiri (9 Nov 2026, malam)
+- Di halaman DAP klik **Edit DAP di halaman sendiri**: terbuka alamat tersendiri (`#/dap?depot=...&team=...&date=...`) yang bisa dibuka di tab baru atau dibagikan. Di sana tabelnya selebar layar dan **tampilan kertasnya sama dengan hasil cetak** (tombol Cetak / Simpan PDF memakai tampilan yang sama, pilih "Simpan sebagai PDF" di jendela cetak, kertas A4 landscape).
+- **Banyak tabel dalam satu halaman:** Tabel DAP (Rp), Tabel DAP (Qty), Top toko (Rp / Qty), dan Program ON faktur. Tiap tabel punya pengaturan sendiri (judul, item, kolom, Top N, urutan) dan bisa digandakan, diurutkan, atau dihapus.
+- **Per SKU, kategori, atau principal:** pilih item lewat pencarian, lalu tiap item mendapat kolom Target, Actual, Gap, % Ach, dan L3M per bulan / per kunjungan. Target kategori dan principal dari slot Target kategori / principal (Template 10); target per SKU dari kolom Target per SKU di Omset per SKU; Target Qty diisi manual.
+- **Sembunyikan baris** (x di ujung baris, per tanggal; total ikut berubah), **edit angka langsung**, dan **Preset** (simpan susunan, jadikan bawaan; langsung dipakai saat halaman dibuka).
+- Perbaikan: principal dan brand sekarang ikut terbaca dari file Qty per SKU tiga blok (sebelumnya hampir semua principal kosong di halaman monitoring).

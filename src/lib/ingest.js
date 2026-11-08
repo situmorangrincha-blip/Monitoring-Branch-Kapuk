@@ -381,7 +381,7 @@ const withBlocks = (orig, kind) => (wb, o) => {
   const w = XLSX.utils.book_new();
   const aoa = kind === 'val'
     ? [['ID Pelanggan', 'Kode SKU', 'Nama SKU', 'BRAND', 'SUB BRAND', 'PRINCIPAL', 'OMSET'], ...rows.map((r) => [r.id, r.sku, r.sku, r.sub || r.prin, r.sub || '', r.prin || '', Math.round(r.cur)])]
-    : [['ID Pelanggan', 'Kode SKU', 'Nama SKU', 'QTY'], ...rows.map((r) => [r.id, r.sku, r.sku, Math.round(r.cur * 100) / 100])];
+    : [['ID Pelanggan', 'Kode SKU', 'Nama SKU', 'BRAND', 'SUB BRAND', 'PRINCIPAL', 'QTY'], ...rows.map((r) => [r.id, r.sku, r.sku, r.sub || r.prin, r.sub || '', r.prin || '', Math.round(r.cur * 100) / 100])];
   XLSX.utils.book_append_sheet(w, XLSX.utils.aoa_to_sheet(aoa), kind === 'val' ? 'OMSET PER SKU' : 'QTY PER SKU');
   const res = orig(w, o);
   res.data.blocks = packBlocks(blk);

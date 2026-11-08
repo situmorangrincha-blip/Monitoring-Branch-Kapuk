@@ -24,6 +24,7 @@ import Programs from './pages/Programs.jsx';
 import SoDo from './pages/SoDo.jsx';
 import Market from './pages/Market.jsx';
 import ViewPrefs from './components/ViewPrefs.jsx';
+import DapEditor from './pages/DapEditor.jsx';
 import SkuRank from './pages/SkuRank.jsx';
 import ItgV2 from './pages/ItgV2.jsx';
 import { skuView } from './lib/skuBlocks.js';
@@ -38,7 +39,6 @@ const PAGES = [
   { id: 'skurank', label: 'Ranking SKU' },
   { id: 'explore', label: 'Jelajah' },
   { id: 'dap', label: 'DAP' },
-  { id: 'dapedit', label: 'Editor DAP' },
   { id: 'rapot', label: 'Rapot' },
   { id: 'perf', label: 'Performa' },
   { id: 'pareto', label: 'Pareto & CA' },
@@ -48,7 +48,7 @@ const PAGES = [
   { id: 'chart', label: 'Grafik' },
 ];
 const NAV = {
-  monitor: ['explore', 'dap', 'dapedit', 'rapot', 'perf', 'pareto', 'stores', 'sales', 'focus', 'chart'],
+  monitor: ['explore', 'dap', 'rapot', 'perf', 'pareto', 'stores', 'sales', 'focus', 'chart'],
   itg: ['itg', 'dap'],
   program: ['program'],
   sodo: ['sodo'],
@@ -62,6 +62,8 @@ const EMPTY = { main: null, sku: null, val: null, prog: null, promo: null, rules
 export default function App() {
   const [phase, setPhase] = useState('probe'); // probe | depot | section | team | loading | ready | error
   const PREVIEW = typeof window !== 'undefined' && !!window.__PREVIEW__;
+  const readRoute = () => { const h = (typeof window !== 'undefined' && window.location.hash) || ''; if (!h.startsWith('#/dap')) return null; const q = new URLSearchParams(h.split('?')[1] || ''); return { depot: q.get('depot'), team: q.get('team'), date: q.get('date') }; };
+  const [route, setRoute] = useState(readRoute);
   const [storeMode, setStoreMode] = useState(PREVIEW ? 'local' : 'cloud');
   const [depot, setDepot] = useState(null);
   const [team, setTeam] = useState(null);
@@ -89,10 +91,28 @@ export default function App() {
   const setTimeOv = (v) => { setTimeOvState(v); if (v) localStorage.setItem('sm_time', JSON.stringify(v)); else localStorage.removeItem('sm_time'); };
   const say = (m) => { setToast(m); setTimeout(() => setToast(''), 3200); };
 
+  const goEditor = (r, modeOv) => {
+    if (!r?.depot || !r?.team) return;
+    setDepot(r.depot); setTeam(r.team); setSection('monitor'); setAuth({ team: r.team });
+    enter(r.depot, r.team, 'monitor', modeOv).then(() => { setPage('dapeditor'); if (r.date) setDapDay(parseInt(r.date.slice(8), 10) || null); });
+  };
   useEffect(() => {
-    if (PREVIEW) { setDepot('kebayoran'); setPhase('section'); return; }
-    probe().then((r) => { setStoreMode(r.mode); setPhase('depot'); });
+    if (PREVIEW) { setDepot('kebayoran'); if (route?.depot && route?.team) { goEditor(route, 'local'); return; } setPhase('section'); return; }
+    probe().then((r) => { setStoreMode(r.mode); if (route?.depot && route?.team) { goEditor(route, r.mode); return; } setPhase('depot'); });
   }, []); // eslint-disable-line
+  // pindah halaman lewat alamat (#/dap...) tanpa memuat ulang
+  useEffect(() => {
+    const f = () => setRoute(readRoute());
+    window.addEventListener('hashchange', f);
+    return () => window.removeEventListener('hashchange', f);
+  }, []); // eslint-disable-line
+  useEffect(() => {
+    if (phase !== 'ready') return;
+    if (route) { if (page !== 'dapeditor') { setPage('dapeditor'); if (route.date) setDapDay(parseInt(route.date.slice(8), 10) || null); } } else if (page === 'dapeditor') setPage('dap');
+  }, [route, phase]); // eslint-disable-line
+  const editorUrl = (date) => `${window.location.origin}${window.location.pathname}#/dap?depot=${depot}&team=${team}${date ? `&date=${date}` : ''}`;
+  const openEditor = ({ date } = {}) => { const w = window.open(editorUrl(date), '_blank'); if (!w) window.location.hash = editorUrl(date).split('#')[1]; };
+  const closeEditor = () => { if (window.history.length > 1 && !window.opener) window.location.hash = ''; else window.location.hash = ''; setRoute(null); setPage('dap'); };
   useEffect(() => { window.scrollTo({ top: 0 }); }, [page]);
   useEffect(() => {
     const h = (e) => {
@@ -117,11 +137,11 @@ export default function App() {
   const setHolidays = (arr) => { const m = { ...holMap, [holKey]: arr }; setHolMap(m); localStorage.setItem('sm_hol', JSON.stringify(m)); };
   const autoTime = useMemo(() => (data ? timeInfo(data.meta.period, null) : { auto: 0, total: 27 }), [data]);
 
-  async function enter(d, t, sec = section) {
+  async function enter(d, t, sec = section, modeOv) {
     setPhase('loading'); setPreview(null);
     setSal('ALL'); setPage(NAV[sec][0]); setDapDay(null);
     try {
-      const r = await loadAll(storeMode, d, t);
+      const r = await loadAll(modeOv || storeMode, d, t);
       setSlots({ ...EMPTY, ...r });
       setPhase('ready');
     } catch (e) { setBootErr(e?.message || 'Gagal memuat data'); setPhase('error'); }
@@ -179,10 +199,11 @@ export default function App() {
     skurank: <SkuRank data={data} pv={{ sku: skuView(data.blocks) }} time={time} />,
     itg: data.itg2 ? <ItgV2 key={data.itg2.fileName || 'itg'} demo={buildItgDemo(data)} /> : <Panel title="ITG"><div className="mut" style={{ marginBottom: 8 }}>Belum ada Excel ITG untuk tim ini (format baru: Target per bulan, Actual, Reward).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Excel ITG</button></Panel>,
     program: <Programs data={data} onUpload={() => setUp(true)} />,
-    dapedit: <Dap editor onEditor={() => setPage('dap')} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
-    dap: <Dap previewOpen={preview?.kind === 'dap'} onEditor={() => setPage('dapedit')} openPreview={setPreview} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
+    dapeditor: <DapEditor data={data} time={time} mode={effMode} holidays={holidays} depot={depot} team={team} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} onBack={closeEditor} />,
+    dap: <Dap previewOpen={preview?.kind === 'dap'} onEditor={openEditor} openPreview={setPreview} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
   }[page];
 
+  if (route && ready && page === 'dapeditor') return <div className="app standalone" data-depot={depot} style={tv}>{body}</div>;
   return (
     <div className="app" data-depot={depot} style={tv}>
       {bgEl}

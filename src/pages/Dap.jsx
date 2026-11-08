@@ -23,9 +23,9 @@ export function defaultDapDate(time, now = new Date()) {
 }
 
 // sel DAP yang bisa diklik dan diketik (oranye = diubah, ↺ = kembali ke suggest)
-function Cell({ v, edited, num, jt, onCommit, onReset, cls, title }) {
+export function Cell({ v, edited, num, jt, dec, onCommit, onReset, cls, title }) {
   const [on, setOn] = useState(false);
-  const commit = (raw) => { setOn(false); const t = String(raw).trim(); if (num) { const n = jt ? parseFloat(t.replace(',', '.')) * 1e6 : parseFloat(t.replace(/\./g, '').replace(',', '.')); if (Number.isFinite(n)) onCommit(Math.round(n)); } else onCommit(t); };
+  const commit = (raw) => { setOn(false); const t = String(raw).trim(); if (num) { const n = jt ? parseFloat(t.replace(',', '.')) * 1e6 : parseFloat(t.replace(/\./g, '').replace(',', '.')); if (Number.isFinite(n)) onCommit(dec ? Math.round(n * 10) / 10 : Math.round(n)); } else onCommit(t); };
   if (on) return <td className={cls}><input className="dcell-in" autoFocus defaultValue={num ? (jt ? String(v) : String(v).replace(/[^\d-]/g, '')) : v} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setOn(false); }} /></td>;
   return <td className={cls} title={title}><span className={'dcell' + (edited ? ' chg' : '')} onClick={() => setOn(true)}>{v === '' ? '\u00a0\u00a0\u00a0' : v}</span>{edited && <button className="rst" title="Kembalikan ke suggest" onClick={onReset}>↺</button>}</td>;
 }
@@ -146,7 +146,7 @@ export default function Dap({ data: data0, mode = 'milestone', time, day, setDay
           <span className="mut">{weekdayName(wd)}</span>
           <span style={{ flex: 1 }} />
           {openPreview && !editor && <button className="btn" disabled={!model.total} onClick={() => { lastSig.current = sig; openPreview(buildPv()); }}>Preview</button>}
-          {editor ? <button className="btn" onClick={() => onEditor && onEditor()}>← DAP biasa</button> : <button className="btn" onClick={() => onEditor && onEditor()} title="Halaman layar penuh untuk mengedit DAP">Buka Editor DAP</button>}
+          {onEditor && <button className="btn pri" onClick={() => onEditor({ date: `${time.y}-${pad(time.m)}-${pad(d)}` })} title="Buka halaman tersendiri untuk mengedit DAP dengan leluasa dan mencetaknya">Edit DAP di halaman sendiri ↗</button>}
           <button className="btn coin" disabled={!model.total || !!busy} onClick={() => pdf(null)}>{busy || 'Unduh PDF (semua salesman)'}</button>
         </div>
         {wd === 0 && <div className="warn">Hari Minggu tidak ada kunjungan.</div>}
@@ -377,7 +377,7 @@ export default function Dap({ data: data0, mode = 'milestone', time, day, setDay
                       const cls = model.head[i].neg && String(v).startsWith('-') ? 'neg' : '';
                       const sA = x.r.auto?.[k];
                       return (
-                        <Cell key={i} v={v} cls={cls} num={base} jt={unit === 'jt'} edited={edited} title={edited && base ? `Suggest: ${['t', 'tv', 'a', 'plan'].includes(k) ? fmtMoney(sA, unit) : sA}` : ''}
+                        <Cell key={i} v={v} cls={cls} num={base} jt={unit === 'jt' && k !== 'sisa'} edited={edited} title={edited && base ? `Suggest: ${['t', 'tv', 'a', 'plan'].includes(k) ? fmtMoney(sA, unit) : sA}` : ''}
                           onCommit={(val) => setEdit(x.r.id, (c) => (base ? { ...c, [k]: val } : { ...c, v: { ...(c.v || {}), [k]: val } }))}
                           onReset={() => setEdit(x.r.id, (c) => { const n = { ...c }; if (base) delete n[k]; else { const vv = { ...(n.v || {}) }; delete vv[k]; if (Object.keys(vv).length) n.v = vv; else delete n.v; } return n; })} />
                       );
