@@ -25,6 +25,7 @@ import SoDo from './pages/SoDo.jsx';
 import Market from './pages/Market.jsx';
 import ViewPrefs from './components/ViewPrefs.jsx';
 import DapEditor from './pages/DapEditor.jsx';
+import Board from './components/Board.jsx';
 import SkuRank from './pages/SkuRank.jsx';
 import ItgV2 from './pages/ItgV2.jsx';
 import { skuView } from './lib/skuBlocks.js';
@@ -187,7 +188,7 @@ export default function App() {
   async function saveSodo(d) { setSlots((o) => ({ ...o, sodo: d })); try { await saveSlot(storeMode, depot, team, 'sodo', d); } catch (e) { say('Gagal simpan SO-DO: ' + (e?.message || e)); } }
   const common = { D, data, time };
   const body = D && {
-    explore: <Explore mode={effMode} data={data} time={time} depot={depot} team={team} />,
+    explore: <Explore mode={effMode} data={data} time={time} depot={depot} team={team} board={<Board D={D} data={data} time={time} sal={sal} />} />,
     perf: <Performance {...common} mode={mode} setMode={setMode} snapping={snapping} snapBg={null} both={null} />,
     focus: <Focus {...common} mode={mode} sub={subs.focus} setSub={setSub} sal={sal} setSal={setSal} onSaveFocus={saveFocus} holidays={holidays} />,
     stores: <Stores data={data} time={time} sal={sal} setSal={setSal} onStore={setStore} />,

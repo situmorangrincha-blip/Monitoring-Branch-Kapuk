@@ -4,6 +4,7 @@ import { GroupedBars, HBars, LineChart, Legend, PAL, PixelDonut } from '../compo
 import { Panel, Seg } from '../components/ui.jsx';
 import SalFilter from '../components/SalFilter.jsx';
 import SnapFrame from '../components/SnapFrame.jsx';
+import Board from '../components/Board.jsx';
 
 const SUBS = [
   { v: 'perf', label: 'Performa' },
@@ -38,6 +39,9 @@ export default function Charts({ D, data, time, mode, setMode, sub, setSub, sal,
           </div>
         )}
       </div>
+      <div style={{ marginBottom: 10 }}><Board D={D} data={data} time={time} sal={sal} /></div>
+      <details className="panel" style={{ padding: '8px 12px' }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Grafik rinci (tampilan lama)</summary>
       <div className="tabs-row" data-nosnap>
         <Seg wrap value={sub} onChange={setSub} options={SUBS} />
         {needSal && <SalFilter data={data} value={sub === 'sales' ? one : sal} onChange={setSal} noAll={sub === 'sales'} />}
@@ -50,6 +54,7 @@ export default function Charts({ D, data, time, mode, setMode, sub, setSub, sal,
       {sub === 'pareto' && <Pareto D={D} time={time} hasTgt={data.meta.storeTgt} />}
       {sub === 'sales' && <SalesView D={D} data={data} time={time} name={one} />}
       {sub === 'tren' && <Tren D={D} data={data} time={time} mode={mode} setMode={setMode} />}
+      </details>
     </SnapFrame>
   );
 }

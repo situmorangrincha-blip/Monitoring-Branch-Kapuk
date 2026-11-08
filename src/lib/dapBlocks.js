@@ -17,7 +17,7 @@ export const newBlock = (type = 'dap', metric = 'rp') => ({
   title: type === 'on' ? 'Program ON faktur' : type === 'top' ? `Top toko (${metric === 'qty' ? 'Qty' : 'Rp'})` : `DAP (${metric === 'qty' ? 'Qty' : 'Rp'})`,
   cols: metric === 'qty' ? ['ch', 'sisa', 'qty', 'note'] : ['ch', 't', 'tv', 'a', 'gap', 'sisa', 'plan', 'note'],
   picks: [], im: metric === 'qty' ? ['a'] : ['t', 'a', 'g', 'p'], l3: [],
-  topN: 10, sortBy: metric === 'qty' ? 'qty' : 'tv', scope: 'salesman', on: [],
+  topN: 10, sortBy: metric === 'qty' ? 'qty' : 'tv', scope: 'salesman', on: [], layout: 'side', perBand: 2,
 });
 
 const qf = (n) => (n == null || !Number.isFinite(n) ? '-' : Number.isInteger(n) ? n.toLocaleString('id-ID') : n.toLocaleString('id-ID', { maximumFractionDigits: 1 }));
@@ -76,7 +76,24 @@ export function buildBlock(data, time, d, holidays, cfg, block, { unit = 'rp', m
   const at = m.head.length - tail;
   const itemCols = items.flatMap((it) => metrics.map((mt) => ({ k: `it:${it.p.kind}:${it.p.key}:${block.metric}:${mt}`, label: `${it.name} ${mlabel[mt]}`, ml: mlabel[mt], kb: `${it.p.kind}:${it.p.key}:${block.metric}`, item: it, mt })));
   const head = [...m.head.slice(0, at), ...itemCols.map((c) => ({ k: c.k, label: c.label, ml: c.ml, kb: c.kb, mt: c.mt, al: 'right', item: true })), ...m.head.slice(at)];
-  const groupsHead = items.length && metrics.length ? [{ label: '', span: at }, ...items.map((it) => ({ label: it.name, span: metrics.length })), { label: '', span: tail }].filter((g) => g.span > 0) : null;
+  // susunan tabel: semua kolom ke samping, atau item dipecah jadi beberapa tabel bertumpuk (identitas toko diulang)
+  const per = Math.max(1, block.perBand || 3);
+  const allIdx = head.map((_, i) => i);
+  const itemIdx = (kbs) => allIdx.filter((i) => head[i].item && kbs.includes(head[i].kb));
+  const kbOf = (it) => `${it.p.kind}:${it.p.key}:${block.metric}`;
+  const ghOf = (cols) => {
+    if (!cols.some((i) => head[i].item)) return null;
+    const out = [];
+    for (const i of cols) { const lab = head[i].item ? items.find((it) => kbOf(it) === head[i].kb)?.name || '' : ''; const key = head[i].item ? head[i].kb : '_'; if (out.length && out[out.length - 1].key === key && key !== '_') out[out.length - 1].span++; else if (out.length && out[out.length - 1].key === '_' && key === '_') out[out.length - 1].span++; else out.push({ key, label: lab, span: 1 }); }
+    return out;
+  };
+  let bands;
+  if (block.layout === 'stack' && items.length > per && metrics.length) {
+    const chunks = []; for (let i = 0; i < items.length; i += per) chunks.push(items.slice(i, i + per));
+    const nonItem = allIdx.filter((i) => !head[i].item);
+    bands = chunks.map((ch, k) => { const ii = itemIdx(ch.map(kbOf)); const cols = k === 0 ? [...allIdx.filter((i) => i < at), ...ii, ...allIdx.filter((i) => i >= at && !head[i].item)] : [0, 1, 2, ...ii]; return { cols, gh: ghOf(cols) }; });
+    void nonItem;
+  } else bands = [{ cols: allIdx, gh: ghOf(allIdx) }];
   const storeBy = new Map(data.stores.map((s) => [s.id + '|' + s.sales.toUpperCase(), s]));
   const BASE = ['t', 'tv', 'a', 'sisa', 'plan'];
 
@@ -149,5 +166,5 @@ export function buildBlock(data, time, d, holidays, cfg, block, { unit = 'rp', m
     });
     return { ...g, n: R.length, tot };
   });
-  return { head, groupsHead, groups, nHidden, dk, wd: m.wd, total: groups.reduce((a, g) => a + g.rows.length, 0) };
+  return { head, bands, groups, nHidden, dk, wd: m.wd, total: groups.reduce((a, g) => a + g.rows.length, 0) };
 }

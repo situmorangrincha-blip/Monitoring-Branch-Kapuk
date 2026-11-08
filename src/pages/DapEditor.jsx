@@ -19,10 +19,14 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
   const unit = useUnit();
   const ckey = `sm_dap_${depot}_${team}`;
   const bkey = `sm_dapb_${depot}_${team}`;
+  const vkey = `sm_dapv_${depot}_${team}`;
   const [cfg, setCfg] = useState(() => ({ ...DEFAULT_DAP, ...(ls(ckey, {}) || {}) }));
   useEffect(() => sv(ckey, cfg), [cfg, ckey]);
   const [blocks, setBlocks] = useState(() => { const pr = ls(bkey + '_presets', {}); const dn = ls(bkey + '_default', ''); return (dn && pr[dn]) || ls(bkey, null) || [newBlock('dap', 'rp')]; });
   useEffect(() => sv(bkey, blocks), [blocks, bkey]);
+  const [view, setView] = useState(() => ({ focus: 'ALL', order: 'table', orient: 'landscape', scale: 100, ...(ls(vkey, {}) || {}) }));
+  useEffect(() => sv(vkey, view), [view, vkey]);
+  const setV = (p) => setView((o) => ({ ...o, ...p }));
   const [pname, setPname] = useState(() => ls(bkey + '_default', ''));
   const [menu, setMenu] = useState('');
 
@@ -38,14 +42,17 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
   const wkAuto = Math.ceil(d / 7);
   const wkOff = cfg.week === '13' ? (wkAuto % 2 === 0 ? 1 : 0) : cfg.week === '24' ? (wkAuto % 2 === 1 ? 1 : 0) : 0;
   const hidAll = cfg.hid?.[dk] || {};
+  const perSales = view.order === 'sales' || view.focus !== 'ALL';
+  const eff = useMemo(() => blocks.map((b) => (perSales && b.type === 'top' ? { ...b, scope: 'salesman' } : b)), [blocks, perSales]);
   const built = useMemo(() => {
     setWeekOffset(wkOff);
-    try { return blocks.map((b) => (b.type === 'on' ? null : buildBlock(data, time, d, holidays, cfg, b, { unit, mode, hidden: hidAll[b.id] || {} }))); } finally { setWeekOffset(0); }
-  }, [data, time, d, holidays, cfg, blocks, unit, mode, wkOff]); // eslint-disable-line
+    try { return eff.map((b) => (b.type === 'on' ? null : buildBlock(data, time, d, holidays, cfg, b, { unit, mode, hidden: hidAll[b.id] || {} }))); } finally { setWeekOffset(0); }
+  }, [data, time, d, holidays, cfg, eff, unit, mode, wkOff]); // eslint-disable-line
   const base0 = useMemo(() => { setWeekOffset(wkOff); try { return buildDap(data, time, d, holidays, { ...cfg, cols: ['t'], skuMain: [], kpick: [], par: { on: false }, unit }); } finally { setWeekOffset(0); } }, [data, time, d, holidays, cfg, unit, wkOff]);
   const skus = useMemo(() => skuOptions(data), [data]);
   const cats = useMemo(() => catOptions(data), [data]);
   const prins = useMemo(() => principalsOf(data), [data]);
+  const salesNames = useMemo(() => { const out = []; for (const B of built) if (B) for (const g of B.groups) if (g.name !== 'Semua salesman' && !out.includes(g.name)) out.push(g.name); return out; }, [built]);
 
   const setEdit = (id, fn) => setCfg((c) => { const ed = { ...(c.edits || {}) }; const dd = { ...(ed[dk] || {}) }; const nx = fn({ ...(dd[id] || {}) }); if (Object.keys(nx).length) dd[id] = nx; else delete dd[id]; if (Object.keys(dd).length) ed[dk] = dd; else delete ed[dk]; return { ...c, edits: ed }; });
   const hide = (bid, id, on) => setCfg((c) => { const h = { ...(c.hid || {}) }; const dd = { ...(h[dk] || {}) }; const bb = { ...(dd[bid] || {}) }; if (on) bb[id] = 1; else delete bb[id]; if (Object.keys(bb).length) dd[bid] = bb; else delete dd[bid]; if (Object.keys(dd).length) h[dk] = dd; else delete h[dk]; return { ...c, hid: h }; });
@@ -55,7 +62,6 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
   const dup = (b) => setBlocks((a) => { const i = a.findIndex((x) => x.id === b.id); const n = [...a]; n.splice(i + 1, 0, { ...JSON.parse(JSON.stringify(b)), id: newBlock().id, title: b.title + ' (salinan)' }); return n; });
   const del = (b) => window.confirm(`Hapus tabel "${b.title}"?`) && setBlocks((a) => a.filter((x) => x.id !== b.id));
   const nEditDay = Object.keys(cfg.edits?.[dk] || {}).length;
-
   const step = (delta) => { let n = d; for (let i = 0; i < 40; i++) { n += delta; if (n < 1 || n > last) return; if (new Date(time.y, time.m - 1, n).getDay() !== 0) { setDay(n); return; } } };
   const savePreset = () => { const name = window.prompt('Nama preset susunan halaman ini:', pname || ''); if (!name) return; sv(bkey + '_presets', { ...ls(bkey + '_presets', {}), [name]: blocks }); setPname(name); setMenu(''); };
   const loadPreset = (name) => { const p = ls(bkey + '_presets', {})[name]; if (p) { setBlocks(JSON.parse(JSON.stringify(p))); setPname(name); } setMenu(''); };
@@ -65,7 +71,6 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
   const isDef = pname && ls(bkey + '_default', '') === pname;
   const title = `DAP ${data.meta.teamLabel?.toUpperCase() || ''} · ${weekdayName(wd).toUpperCase()} ${d} ${MON[time.m - 1].toUpperCase()} ${time.y}`;
 
-  // sel yang bisa diedit di tabel
   const renderCell = (b, x, c, i) => {
     const v = x.cells[i];
     if (i < 3) return <td key={i} className={i === 1 ? 'l nm' : i === 2 ? 'l mut' : 'c'}>{v}</td>;
@@ -79,11 +84,113 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
     return <Cell key={i} v={v} cls={neg ? 'neg' : ''} edited={ed.v?.[m.k] != null} onCommit={(val) => setEdit(x.r.id, (o) => ({ ...o, v: { ...(o.v || {}), [m.k]: val } }))} onReset={() => setEdit(x.r.id, (o) => { const vv = { ...(o.v || {}) }; delete vv[m.k]; const n = { ...o }; if (Object.keys(vv).length) n.v = vv; else delete n.v; return n; })} />;
   };
 
+  // satu kertas: tabel DAP / Top toko untuk satu salesman (bisa terdiri dari beberapa tabel bertumpuk)
+  const paper = (b, B, g, inl) => (
+    <div key={b.id + g.name} className={'dpaper' + (inl ? ' inl' : '')}>
+      <div className="dph"><span>{inl ? g.name.toUpperCase() : title}</span><span>{inl ? b.title : `${b.title} · ${g.name.toUpperCase()}`}</span></div>
+      {B.bands.map((band, k) => (
+        <table key={k} className="dp" style={k ? { marginTop: 8 } : undefined}>
+          <thead>
+            {band.gh && <tr><th className="noprint" />{band.gh.map((h, i) => <th key={i} colSpan={h.span} className="gh">{h.label}</th>)}</tr>}
+            <tr><th className="noprint" />{band.cols.map((ci) => { const c = B.head[ci]; return <th key={ci} className={ci === 1 || ci === 2 ? 'l' : ''}>{c.item ? c.ml : c.label}</th>; })}</tr>
+          </thead>
+          <tbody>
+            {g.rows.map((x) => (
+              <tr key={x.r.id + x.r.s}>
+                <td className="noprint">{k === 0 && <button className="rst gt-x" style={{ opacity: 1 }} title="Sembunyikan toko ini di tanggal ini" onClick={() => hide(b.id, x.r.id, true)}>×</button>}</td>
+                {band.cols.map((ci) => renderCell(b, x, B.head[ci], ci))}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot><tr><td className="noprint" />{band.cols.map((ci) => <td key={ci} className={ci === 1 ? 'l' : ''}>{g.tot[ci]}</td>)}</tr></tfoot>
+        </table>
+      ))}
+    </div>
+  );
+  const onPaper = (b, inl) => (
+    <div key={b.id} className={'dpaper' + (inl ? ' inl' : '')}>
+      <div className="dph"><span>{inl ? 'PROGRAM' : title}</span><span>{b.title}</span></div>
+      <table className="dp">
+        <thead><tr><th className="l">Program</th><th>Min order</th><th>Satuan</th><th>Diskon</th><th>Potongan</th><th>Pengambilan</th><th className="noprint" style={{ width: 22 }} /></tr></thead>
+        <tbody>
+          {(b.on || []).map((x, i) => {
+            const set = (k) => (val) => patchBlock(b.id, (o) => ({ on: o.on.map((y, j) => (j === i ? { ...y, [k]: val } : y)) }));
+            const clr = (k) => () => set(k)(k === 'min' || k === 'pot' ? 0 : '');
+            return (
+              <tr key={i}>
+                <Cell v={x.n || ''} cls="l" onCommit={set('n')} onReset={clr('n')} />
+                <Cell v={x.min ? fmtMoney(x.min, 'rp') : ''} num onCommit={set('min')} onReset={clr('min')} />
+                <Cell v={x.sat || ''} onCommit={set('sat')} onReset={clr('sat')} />
+                <Cell v={x.dis || ''} onCommit={set('dis')} onReset={clr('dis')} />
+                <Cell v={x.pot ? fmtMoney(x.pot, 'rp') : ''} num onCommit={set('pot')} onReset={clr('pot')} />
+                <Cell v={x.ambil || ''} cls="blank" onCommit={set('ambil')} onReset={clr('ambil')} />
+                <td className="noprint"><button className="rst gt-x" style={{ opacity: 1 }} title="Hapus baris" onClick={() => patchBlock(b.id, (o) => ({ on: o.on.filter((_, j) => j !== i) }))}>×</button></td>
+              </tr>
+            );
+          })}
+          {!(b.on || []).length && <tr><td colSpan={7} className="mut" style={{ textAlign: 'center', padding: 10 }}>Belum ada program. Klik “+ tambah program”.</td></tr>}
+        </tbody>
+      </table>
+      <div className="noprint" style={{ marginTop: 6 }}><button className="btn sm" onClick={() => patchBlock(b.id, (o) => ({ on: [...(o.on || []), { n: '', min: 0, sat: '', dis: '', pot: 0, ambil: '' }] }))}>+ tambah program</button></div>
+    </div>
+  );
+
   const togList = (arr, k) => (arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k]);
   const chip = (on, l, f, key) => <label key={key} className={'tog' + (on ? ' on' : '')}><input type="checkbox" checked={on} onChange={f} />{l}</label>;
+  const shownNames = salesNames.filter((n) => view.focus === 'ALL' || n === view.focus);
+  const settings = blocks.map((b, bi) => {
+    const B = built[bi];
+    const isOn = b.type === 'on';
+    const baseList = b.metric === 'qty' ? BASE_QTY : BASE_RP;
+    return (
+      <details key={b.id} open={!isOn && blocks.length <= 3} className="bset">
+        <summary><b>{b.title}</b> <span className="mut">· {isOn ? 'Program ON faktur' : b.type === 'top' ? 'Top toko' : 'Tabel DAP'}{!isOn && (b.metric === 'qty' ? ' · Qty' : ' · Rp')}</span></summary>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '6px 0' }}>
+          <input className="input" value={b.title} onChange={(e) => patchBlock(b.id, { title: e.target.value })} style={{ width: 220, minWidth: 0 }} aria-label="Judul tabel" />
+          {!isOn && <div className="seg">{[['rp', 'Rp'], ['qty', 'Qty']].map(([v, l]) => <button key={v} className={b.metric === v ? 'on' : ''} onClick={() => patchBlock(b.id, (o) => ({ metric: v, cols: (o.cols || []).filter((k) => (v === 'qty' ? BASE_QTY : BASE_RP).some((x) => x[0] === k)), sortBy: v === 'qty' ? 'qty' : 'tv', im: v === 'qty' ? ['a'] : ['t', 'a', 'g', 'p'] }))}>{l}</button>)}</div>}
+          <span style={{ flex: 1 }} />
+          <button className="btn sm" disabled={bi === 0} onClick={() => move(bi, -1)}>↑</button>
+          <button className="btn sm" disabled={bi === blocks.length - 1} onClick={() => move(bi, 1)}>↓</button>
+          <button className="btn sm" onClick={() => dup(b)}>Gandakan</button>
+          <button className="btn sm" onClick={() => del(b)}>Hapus tabel</button>
+        </div>
+        {!isOn && (
+          <>
+            <div className="mut" style={{ fontSize: 12 }}>Item di tabel ini (SKU, kategori, atau principal): tiap item mendapat kolom Target, Actual, Gap, dan % Ach sesuai pilihan di bawah.</div>
+            <FocusPicker skus={skus} cats={cats} prins={prins} picks={b.picks || []} onToggle={(kind, key) => patchBlock(b.id, (o) => { const cur = o.picks || []; const has = cur.some((p) => p.kind === kind && p.key === key); return { picks: has ? cur.filter((p) => !(p.kind === kind && p.key === key)) : [...cur, { kind, key }] }; })} />
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="lbl">Kolom per item</span>
+              {IM.map(([k, l]) => chip((b.im || []).includes(k), l, () => patchBlock(b.id, (o) => ({ im: togList(o.im || [], k) })), k))}
+              {L3.map(([k, l]) => chip((b.l3 || []).includes(k), l, () => patchBlock(b.id, (o) => ({ l3: togList(o.l3 || [], k) })), k))}
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+              <span className="lbl">Susunan item</span>
+              <div className="seg">{[['side', 'Ke samping'], ['stack', 'Bertumpuk di bawah']].map(([v, l]) => <button key={v} className={(b.layout || 'side') === v ? 'on' : ''} onClick={() => patchBlock(b.id, { layout: v })}>{l}</button>)}</div>
+              {b.layout === 'stack' && <label className="mut" style={{ fontWeight: 600 }}>maks <input className="input" type="number" min="1" style={{ width: 56, minWidth: 0 }} value={b.perBand || 3} onChange={(e) => patchBlock(b.id, { perBand: Math.max(1, +e.target.value || 1) })} /> item per tabel</label>}
+              <span className="mut" style={{ fontSize: 11.5 }}>Bertumpuk: item berikutnya masuk ke tabel di bawah tabel sebelumnya, supaya tidak melebar saat dicetak.</span>
+            </div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+              <span className="lbl">Kolom dasar</span>
+              {baseList.map(([k, l]) => chip((b.cols || []).includes(k), l, () => patchBlock(b.id, (o) => ({ cols: togList(o.cols || [], k) })), k))}
+            </div>
+            {b.type === 'top' && (
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+                <label className="mut" style={{ fontWeight: 600 }}>Top <input className="input" type="number" min="1" style={{ width: 60, minWidth: 0 }} value={b.topN} onChange={(e) => patchBlock(b.id, { topN: Math.max(1, +e.target.value || 1) })} /> toko</label>
+                <select className="input" value={b.sortBy} onChange={(e) => patchBlock(b.id, { sortBy: e.target.value })}>{SORTS[b.metric === 'qty' ? 'qty' : 'rp'].map(([v, l]) => <option key={v} value={v}>Urut: {l}</option>)}</select>
+                <div className="seg">{[['salesman', 'Per salesman'], ['all', 'Semua salesman']].map(([v, l]) => <button key={v} className={b.scope === v ? 'on' : ''} onClick={() => patchBlock(b.id, { scope: v })}>{l}</button>)}</div>
+              </div>
+            )}
+            {b.metric === 'qty' && <div className="mut" style={{ fontSize: 11.5, marginTop: 4 }}>Target Qty belum ada di file monitoring, jadi tampil “-” sampai lu isi manual (klik selnya). Gap dan % Ach menghitung sendiri setelah target diisi.</div>}
+            {B?.nHidden > 0 && <div className="mut" style={{ fontSize: 12, marginTop: 4 }}>{B.nHidden} baris disembunyikan di tanggal ini <button className="btn sm" onClick={() => showAll(b.id)}>Tampilkan semua</button></div>}
+          </>
+        )}
+      </details>
+    );
+  });
 
   return (
     <div className="dped">
+      <style>{`@media print { @page { size: A4 ${view.orient}; margin: 8mm; } .dpaper { zoom: ${(view.scale || 100) / 100}; } }`}</style>
       <div className="dped-bar noprint">
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button className="btn sm" onClick={onBack}>← Kembali ke web</button>
@@ -116,103 +223,36 @@ export default function DapEditor({ data: data0, time, mode = 'milestone', holid
           </div>
           {nEditDay > 0 && <button className="btn sm" onClick={() => window.confirm(`Kembalikan ${nEditDay} toko di tanggal ini ke suggest?`) && setCfg((c) => { const ed = { ...(c.edits || {}) }; delete ed[dk]; return { ...c, edits: ed }; })}>Reset {nEditDay} toko yang diubah</button>}
         </div>
-        <div className="mut" style={{ fontSize: 11.5, marginTop: 4 }}>Klik angka mana saja untuk mengubahnya (oranye = diubah, ↺ = kembali ke suggest). × di ujung baris menyembunyikan toko untuk tanggal ini dan totalnya ikut berubah. Satuan dan ukuran huruf ada di kanan atas.</div>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+          <span className="lbl">Fokus</span>
+          <select className="input" value={view.focus} onChange={(e) => setV({ focus: e.target.value })}><option value="ALL">Semua salesman</option>{salesNames.map((n) => <option key={n}>{n}</option>)}</select>
+          <span className="lbl">Urutan cetak</span>
+          <div className="seg"><button className={!perSales ? 'on' : ''} disabled={view.focus !== 'ALL'} onClick={() => setV({ order: 'table' })}>Per tabel</button><button className={perSales ? 'on' : ''} onClick={() => setV({ order: 'sales' })}>Per salesman</button></div>
+          <span className="lbl">Kertas</span>
+          <div className="seg">{[['landscape', 'Landscape'], ['portrait', 'Portrait']].map(([v, l]) => <button key={v} className={view.orient === v ? 'on' : ''} onClick={() => setV({ orient: v })}>{l}</button>)}</div>
+          <label className="mut" style={{ fontWeight: 600 }}>Skala cetak <select className="input" value={view.scale} onChange={(e) => setV({ scale: +e.target.value })}>{[100, 90, 80, 70, 60, 50].map((n) => <option key={n} value={n}>{n}%</option>)}</select></label>
+        </div>
+        <div className="mut" style={{ fontSize: 11.5, marginTop: 4 }}>Per salesman: semua tabel satu salesman (DAP, Top toko, ON faktur) berurutan dalam satu halaman cetak. Klik angka untuk mengubahnya; × menyembunyikan toko di tanggal ini dan totalnya ikut berubah.</div>
       </div>
 
-      {blocks.map((b, bi) => {
-        const B = built[bi];
-        const isOn = b.type === 'on';
-        const baseList = b.metric === 'qty' ? BASE_QTY : BASE_RP;
-        return (
-          <section key={b.id} className="dblk">
-            <details open className="bset noprint">
-              <summary><b>{b.title}</b> <span className="mut">· {isOn ? 'Program ON faktur' : b.type === 'top' ? 'Top toko' : 'Tabel DAP'}{!isOn && (b.metric === 'qty' ? ' · Qty' : ' · Rp')}</span></summary>
-              <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '6px 0' }}>
-                <input className="input" value={b.title} onChange={(e) => patchBlock(b.id, { title: e.target.value })} style={{ width: 220, minWidth: 0 }} aria-label="Judul tabel" />
-                {!isOn && <div className="seg">{[['rp', 'Rp'], ['qty', 'Qty']].map(([v, l]) => <button key={v} className={b.metric === v ? 'on' : ''} onClick={() => patchBlock(b.id, (o) => ({ metric: v, cols: (o.cols || []).filter((k) => (v === 'qty' ? BASE_QTY : BASE_RP).some((x) => x[0] === k)), sortBy: v === 'qty' ? 'qty' : 'tv', im: v === 'qty' ? ['a'] : ['t', 'a', 'g', 'p'] }))}>{l}</button>)}</div>}
-                <span style={{ flex: 1 }} />
-                <button className="btn sm" disabled={bi === 0} onClick={() => move(bi, -1)}>↑</button>
-                <button className="btn sm" disabled={bi === blocks.length - 1} onClick={() => move(bi, 1)}>↓</button>
-                <button className="btn sm" onClick={() => dup(b)}>Gandakan</button>
-                <button className="btn sm" onClick={() => del(b)}>Hapus tabel</button>
-              </div>
-              {!isOn && (
-                <>
-                  <div className="mut" style={{ fontSize: 12 }}>Item di tabel ini (SKU, kategori, atau principal): tiap item mendapat kolom Target, Actual, Gap, dan % Ach sesuai pilihan di bawah.</div>
-                  <FocusPicker skus={skus} cats={cats} prins={prins} picks={b.picks || []} onToggle={(kind, key) => patchBlock(b.id, (o) => { const cur = o.picks || []; const has = cur.some((p) => p.kind === kind && p.key === key); return { picks: has ? cur.filter((p) => !(p.kind === kind && p.key === key)) : [...cur, { kind, key }] }; })} />
-                  <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className="lbl">Kolom per item</span>
-                    {IM.map(([k, l]) => chip((b.im || []).includes(k), l, () => patchBlock(b.id, (o) => ({ im: togList(o.im || [], k) })), k))}
-                    {L3.map(([k, l]) => chip((b.l3 || []).includes(k), l, () => patchBlock(b.id, (o) => ({ l3: togList(o.l3 || [], k) })), k))}
-                  </div>
-                  <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-                    <span className="lbl">Kolom dasar</span>
-                    {baseList.map(([k, l]) => chip((b.cols || []).includes(k), l, () => patchBlock(b.id, (o) => ({ cols: togList(o.cols || [], k) })), k))}
-                  </div>
-                  {b.type === 'top' && (
-                    <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-                      <label className="mut" style={{ fontWeight: 600 }}>Top <input className="input" type="number" min="1" style={{ width: 60, minWidth: 0 }} value={b.topN} onChange={(e) => patchBlock(b.id, { topN: Math.max(1, +e.target.value || 1) })} /> toko</label>
-                      <select className="input" value={b.sortBy} onChange={(e) => patchBlock(b.id, { sortBy: e.target.value })}>{SORTS[b.metric === 'qty' ? 'qty' : 'rp'].map(([v, l]) => <option key={v} value={v}>Urut: {l}</option>)}</select>
-                      <div className="seg">{[['salesman', 'Per salesman'], ['all', 'Semua salesman']].map(([v, l]) => <button key={v} className={b.scope === v ? 'on' : ''} onClick={() => patchBlock(b.id, { scope: v })}>{l}</button>)}</div>
-                    </div>
-                  )}
-                  {b.metric === 'qty' && <div className="mut" style={{ fontSize: 11.5, marginTop: 4 }}>Target Qty belum ada di file monitoring, jadi tampil “-” sampai lu isi manual (klik selnya). Gap dan % Ach menghitung sendiri setelah target diisi.</div>}
-                  {B?.nHidden > 0 && <div className="mut" style={{ fontSize: 12, marginTop: 4 }}>{B.nHidden} baris disembunyikan di tanggal ini <button className="btn sm" onClick={() => showAll(b.id)}>Tampilkan semua</button></div>}
-                </>
-              )}
-            </details>
+      <div className="noprint">{settings}</div>
 
-            {isOn ? (
-              <div className="dpaper">
-                <div className="dph"><span>{title}</span><span>{b.title}</span></div>
-                <table className="dp">
-                  <thead><tr><th className="l">Program</th><th>Min order</th><th>Satuan</th><th>Diskon</th><th>Potongan</th><th>Pengambilan</th><th className="noprint" style={{ width: 22 }} /></tr></thead>
-                  <tbody>
-                    {(b.on || []).map((x, i) => {
-                      const set = (k) => (val) => patchBlock(b.id, (o) => ({ on: o.on.map((y, j) => (j === i ? { ...y, [k]: val } : y)) }));
-                      const clr = (k) => () => set(k)(k === 'min' || k === 'pot' ? 0 : '');
-                      return (
-                        <tr key={i}>
-                          <Cell v={x.n || ''} cls="l" onCommit={set('n')} onReset={clr('n')} />
-                          <Cell v={x.min ? fmtMoney(x.min, 'rp') : ''} num onCommit={set('min')} onReset={clr('min')} />
-                          <Cell v={x.sat || ''} onCommit={set('sat')} onReset={clr('sat')} />
-                          <Cell v={x.dis || ''} onCommit={set('dis')} onReset={clr('dis')} />
-                          <Cell v={x.pot ? fmtMoney(x.pot, 'rp') : ''} num onCommit={set('pot')} onReset={clr('pot')} />
-                          <Cell v={x.ambil || ''} cls="blank" onCommit={set('ambil')} onReset={clr('ambil')} />
-                          <td className="noprint"><button className="rst gt-x" style={{ opacity: 1 }} title="Hapus baris" onClick={() => patchBlock(b.id, (o) => ({ on: o.on.filter((_, j) => j !== i) }))}>×</button></td>
-                        </tr>
-                      );
-                    })}
-                    {!(b.on || []).length && <tr><td colSpan={7} className="mut" style={{ textAlign: 'center', padding: 10 }}>Belum ada program. Klik “+ tambah program”.</td></tr>}
-                  </tbody>
-                </table>
-                <div className="noprint" style={{ marginTop: 6 }}><button className="btn sm" onClick={() => patchBlock(b.id, (o) => ({ on: [...(o.on || []), { n: '', min: 0, sat: '', dis: '', pot: 0, ambil: '' }] }))}>+ tambah program</button></div>
-              </div>
-            ) : !B || !B.groups.length ? (
-              <div className="dpaper"><div className="mut">Tidak ada toko dijadwalkan di tanggal ini.</div></div>
-            ) : B.groups.map((g) => (
-              <div key={g.name} className="dpaper">
-                <div className="dph"><span>{title}</span><span>{b.title} · {g.name.toUpperCase()}</span></div>
-                <table className="dp">
-                  <thead>
-                    {B.groupsHead && <tr><th className="noprint" />{B.groupsHead.map((h, i) => <th key={i} colSpan={h.span} className="gh">{h.label}</th>)}</tr>}
-                    <tr><th className="noprint" />{B.head.map((c, i) => <th key={i} className={i === 1 || i === 2 ? 'l' : ''}>{c.item ? c.ml : c.label}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {g.rows.map((x) => (
-                      <tr key={x.r.id + x.r.s}>
-                        <td className="noprint"><button className="rst gt-x" style={{ opacity: 1 }} title="Sembunyikan toko ini di tanggal ini" onClick={() => hide(b.id, x.r.id, true)}>×</button></td>
-                        {B.head.map((c, i) => renderCell(b, x, c, i))}
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot><tr><td className="noprint" />{g.tot.map((t, i) => <td key={i} className={i === 1 ? 'l' : ''}>{t}</td>)}</tr></tfoot>
-                </table>
-              </div>
-            ))}
-          </section>
-        );
-      })}
+      {perSales
+        ? shownNames.map((nm) => (
+          <div key={nm} className="spage">
+            {blocks.map((b, bi) => {
+              if (b.type === 'on') return onPaper(b, true);
+              const B = built[bi]; const g = B?.groups.find((x) => x.name === nm);
+              return g ? paper(b, B, g, true) : null;
+            })}
+          </div>
+        ))
+        : blocks.map((b, bi) => {
+          if (b.type === 'on') return view.focus === 'ALL' ? onPaper(b, false) : null;
+          const B = built[bi];
+          if (!B || !B.groups.length) return <div key={b.id} className="dpaper"><div className="mut">Tidak ada toko dijadwalkan di tanggal ini.</div></div>;
+          return B.groups.filter((g) => view.focus === 'ALL' || g.name === view.focus).map((g) => paper(b, B, g, false));
+        })}
       {!blocks.length && <div className="note">Belum ada tabel. Klik “+ Tambah tabel”.</div>}
     </div>
   );

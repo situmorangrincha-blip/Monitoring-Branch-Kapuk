@@ -31,11 +31,11 @@ function view(r, show, tg) {
 }
 
 // items: [{ r, show }] ; output: 'save' | 'blob'
-export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, depot = '', team = '', output = 'save', file = 'Kontrak-ITG' } = {}) {
+export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, depot = '', team = '', output = 'save', file = 'Kontrak-ITG', orientation = 'portrait' } = {}) {
   if (!items.length) throw new Error('Tidak ada kontrak untuk dicetak');
   const M = (v, d = 2) => (unit === 'jt' ? idf((v || 0) / 1e6, d) : idf(v || 0, 0));
   const RP = (v) => idf(v || 0, 0);
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: orientation === 'landscape' ? 'landscape' : 'portrait' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const acc = depot && /kapuk/i.test(depot) ? [79, 148, 166] : [201, 104, 59];
   const mm = months.map((m) => m.label).join(' - ');
@@ -104,7 +104,8 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
     }
     if (show.wajib && v.e.contract?.wajib) { heading('ITEM UNGGULAN WAJIB'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(clean(v.e.contract.wajib), W / 2, cur + 2, { align: 'center', maxWidth: W - 30 }); cur += 8; }
     if (show.sig) {
-      const top = Math.max(cur + 6, H - 40);
+      let top = Math.max(cur + 6, H - 40);
+      if (top > H - 28) { doc.addPage(); top = 24; }
       const labs = ['Salesman', 'SAC', 'Branch Head', clean(r.name).slice(0, 18)];
       const bw = (W - 24) / 4;
       labs.forEach((l, i) => { doc.setDrawColor(150); doc.line(12 + i * bw + 3, top + 18, 12 + (i + 1) * bw - 3, top + 18); doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.text(l, 12 + i * bw + bw / 2, top + 22, { align: 'center' }); });

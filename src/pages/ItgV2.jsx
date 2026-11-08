@@ -284,7 +284,7 @@ export default function ItgV2({ demo }) {
     setPdfBusy('Menyusun PDF...');
     try {
       const { makeItgContractPdf } = await import('../lib/contractPdf2.js');
-      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko` });
+      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
     } catch (e) { window.alert('Gagal membuat PDF: ' + (e?.message || e)); }
     setPdfBusy('');
   };
@@ -320,6 +320,7 @@ export default function ItgV2({ demo }) {
         <div className="grow" />
         <div className="seg">{['jt', 'Rp'].map((u) => <button key={u} className={unit === u ? 'on' : ''} onClick={() => setS({ unit: u })}>{u}</button>)}</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+        <div className="seg" title="Arah kertas PDF kontrak">{[['portrait', 'Portrait'], ['landscape', 'Landscape']].map(([v, l]) => <button key={v} className={(settings.paper || 'portrait') === v ? 'on' : ''} onClick={() => setS({ paper: v })}>{l}</button>)}</div>
         <button className="btn coin" disabled={!rows.length || !!pdfBusy} onClick={() => downloadPdf(rows)}>{pdfBusy || `Unduh PDF (${rows.length} kontrak)`}</button>
         <button className="btn pri" onClick={() => fileRef.current?.click()}>Upload Excel ITG</button>
         {nEdit > 0 && <button className="btn" onClick={() => window.confirm('Kembalikan semua angka ke suggest?') && setEdits({})}>Reset {nEdit} toko yang diubah</button>}

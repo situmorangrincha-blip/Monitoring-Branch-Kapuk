@@ -35,7 +35,7 @@ const MEAS = [
 ];
 const DEFAULT = { rows: ['sales'], ms: ['act', 'tgt', 'ach', 'ca'], filters: [], basis: 'same', unit: 'jt', cov: 'all', who: 'ALL', grp: 'ALL', q: '' };
 
-export default function Explore({ data, time, depot, team, mode = 'milestone' }) {
+export default function Explore({ data, time, depot, team, mode = 'milestone', board }) {
   const ci = useMemo(() => ctargetIndex(data, mode), [data, mode]);
   const pkey = `sm_presets_${depot}_${team}`;
   const [st, setSt] = useState(DEFAULT);
@@ -324,6 +324,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone' })
 
   return (
     <div className="grid">
+      {board && <details open className="panel" style={{ padding: '8px 10px' }}><summary style={{ cursor: 'pointer', fontWeight: 700, marginBottom: 6 }}>Papan ringkas</summary>{board}</details>}
       <Panel title="CEK CEPAT" right={`${calc.nStores.toLocaleString('id-ID')} toko dalam cakupan · timegone ${fmt.pct(tgBase, 0)}`}>
         <div className="opt-row">
           <span className="mut">Siapa</span>

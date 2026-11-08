@@ -1,5 +1,5 @@
 .iv { --bg: #f5f1ea; --card: #fff; --card2: #faf7f2; --ink: #2f4252; --mute: #7b8794; --line: #e9e2d6; --ac: #c9683b; --ac2: #4f94a6; --acs: #fdf0e6; --ok: #3f8f78; --warn: #d9962f; --bad: #d4574a; --chg: #e8742f;
-  font-family: 'Quicksand', 'Segoe UI', system-ui, sans-serif; font-size: 13px; color: var(--ink); background: var(--bg); min-height: 100vh; padding: 14px 14px 40px; box-sizing: border-box; }
+  font-family: var(--ui); font-size: 13px; color: var(--ink); background: var(--bg); min-height: 100vh; padding: 14px 14px 40px; box-sizing: border-box; }
 @media (prefers-color-scheme: dark) { .iv:not([data-theme='light']) { --bg: #1d242b; --card: #26303a; --card2: #2b3641; --ink: #e8edf2; --mute: #9aa8b5; --line: #384553; --ac: #f0a77c; --ac2: #7fbdd0; --acs: #3a3029; --ok: #6cc2a8; --warn: #efb85a; --bad: #ee8a7e; --chg: #ffa35c; } }
 .iv * { box-sizing: border-box; }
 .iv b, .iv strong { font-weight: 700; }

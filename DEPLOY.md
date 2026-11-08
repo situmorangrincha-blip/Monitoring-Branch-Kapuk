@@ -40,3 +40,9 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Per SKU, kategori, atau principal:** pilih item lewat pencarian, lalu tiap item mendapat kolom Target, Actual, Gap, % Ach, dan L3M per bulan / per kunjungan. Target kategori dan principal dari slot Target kategori / principal (Template 10); target per SKU dari kolom Target per SKU di Omset per SKU; Target Qty diisi manual.
 - **Sembunyikan baris** (x di ujung baris, per tanggal; total ikut berubah), **edit angka langsung**, dan **Preset** (simpan susunan, jadikan bawaan; langsung dipakai saat halaman dibuka).
 - Perbaikan: principal dan brand sekarang ikut terbaca dari file Qty per SKU tiga blok (sebelumnya hampir semua principal kosong di halaman monitoring).
+
+## Update 3 (9 Nov 2026, malam)
+- **Papan ringkas** di Jelajah (dan di halaman Grafik, grafik lama dilipat): 8 grafik kecil rapat dalam satu layar (salesman, principal, ukuran toko, channel, hari kunjungan, tren, kategori teratas, toko teratas) plus kartu skor.
+- **Font:** 23 pilihan jenis huruf di header (dimuat hanya saat dipilih). **Ukuran huruf** sekarang bisa sampai 60% (A-) dan 140% (A+). Paket font baru ada di package.json, jadi Vercel akan menginstalnya otomatis.
+- **Editor DAP:** Fokus satu salesman (semua tabel salesman itu berurutan: DAP, Top toko, ON faktur), urutan cetak per tabel atau per salesman, kertas Landscape / Portrait, skala cetak 50-100%, dan susunan item "Bertumpuk di bawah" (maks N item per tabel) supaya kolom tidak melebar saat dicetak.
+- **PDF kontrak ITG:** pilihan kertas Portrait / Landscape.

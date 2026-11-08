@@ -5,8 +5,10 @@ import '@fontsource/quicksand/600.css';
 import '@fontsource/quicksand/700.css';
 import App from './App.jsx';
 import { applyFs } from './lib/unit.js';
+import { applyFont } from './lib/fonts.js';
 import './styles.css';
 import './theme.css';
 
 applyFs();
+applyFont();
 createRoot(document.getElementById('root')).render(<App />);
