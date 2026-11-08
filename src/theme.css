@@ -4,8 +4,8 @@
   --ac: #f0a77c; --ac-d: #c9683b; --ac-soft: #fdf1e8; --ac-line: #f6d4bf;
   --ac2: #4f94a6; --ac3: #f7dca0;
   --hp: #4f9a86; --hp-d: #3b7a69; --coin: #f2b95a; --dmg: #d9604f;
-  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --head: 'Poppins', 'Inter', system-ui, sans-serif;
+  --ui: 'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --head: 'Quicksand', system-ui, sans-serif;
   --ease: cubic-bezier(.22, .8, .24, 1);
 }
 [data-depot='kapuk'] { --ac: #5aa0b2; --ac-d: #2c7189; --ac-soft: #e9f4f7; --ac-line: #c3e0e8; --ac2: #f0a77c; --ac3: #f7dca0; }
@@ -195,3 +195,7 @@ html[data-anim='off'] .ws-main, html[data-anim='off'] .ws-pv { transition: none;
 .kpi.ok .v { color: #1e8c50; } .kpi.warn .v { color: #c98a14; } .kpi.neg .v { color: #d9534f; }
 .warnbar { background: #fdf0d8; border: 1px solid #f0d9a8; color: #7a5a14; border-radius: 10px; padding: 6px 10px; margin-bottom: 8px; font-size: 12.5px; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+
+.vprefs { display: inline-flex; gap: 6px; align-items: center; }
+.vprefs .seg button { padding: 3px 8px; font-size: 12px; }
+.vprefs .seg button:disabled { opacity: .35; cursor: default; }

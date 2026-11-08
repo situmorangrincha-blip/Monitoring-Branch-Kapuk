@@ -27,3 +27,9 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 **DAP:** target per toko dari worksheet target DAP (dikenali dari isinya), filter pekan 1&3 / 2&4, PLAN = gap / sisa kunjungan dengan minimum order (wholesaler 1 juta, retail 200 ribu), edit angka langsung, pencarian SKU / kategori / principal.
 **Rapot:** indikator baru EC, AC, ITG, dan MSS (bobot bisa diubah; indikator tanpa data dilewati).
 **Data lama:** slot ITG lama (format sebelumnya) tidak terbaca di halaman ITG baru dan perlu upload ulang. Slot lain tidak perlu diulang.
+
+## Update berikutnya (9 Nov 2026, sore)
+- **ITG:** tombol **Unduh PDF** (semua kontrak sesuai filter, atau satu toko dari panel kontrak). Excel ITG boleh punya dua kolom reward ("Reward Total 2 Bulan" dan "Reward Sebulan"); pilih yang ditampilkan lewat tombol **Reward** di pengaturan ITG.
+- **DAP:** halaman **Editor DAP** layar penuh (menu Editor DAP atau tombol Buka Editor DAP), preview PDF ikut berubah otomatis saat angka diedit, dan satuan Rp / Juta.
+- **Tampilan:** font Quicksand di seluruh web, tombol ukuran huruf (A- / A+) dan satuan (Rp / Juta) di header.
+- **GreenStore / MSS lama dihapus** dari DAP, Rapot, dan daftar upload karena sudah masuk section Market Productivity. Indikator MSS di Rapot sekarang bobot 10.

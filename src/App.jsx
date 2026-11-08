@@ -23,6 +23,7 @@ import Rapot from './pages/Rapot.jsx';
 import Programs from './pages/Programs.jsx';
 import SoDo from './pages/SoDo.jsx';
 import Market from './pages/Market.jsx';
+import ViewPrefs from './components/ViewPrefs.jsx';
 import SkuRank from './pages/SkuRank.jsx';
 import ItgV2 from './pages/ItgV2.jsx';
 import { skuView } from './lib/skuBlocks.js';
@@ -37,6 +38,7 @@ const PAGES = [
   { id: 'skurank', label: 'Ranking SKU' },
   { id: 'explore', label: 'Jelajah' },
   { id: 'dap', label: 'DAP' },
+  { id: 'dapedit', label: 'Editor DAP' },
   { id: 'rapot', label: 'Rapot' },
   { id: 'perf', label: 'Performa' },
   { id: 'pareto', label: 'Pareto & CA' },
@@ -46,7 +48,7 @@ const PAGES = [
   { id: 'chart', label: 'Grafik' },
 ];
 const NAV = {
-  monitor: ['explore', 'dap', 'rapot', 'perf', 'pareto', 'stores', 'sales', 'focus', 'chart'],
+  monitor: ['explore', 'dap', 'dapedit', 'rapot', 'perf', 'pareto', 'stores', 'sales', 'focus', 'chart'],
   itg: ['itg', 'dap'],
   program: ['program'],
   sodo: ['sodo'],
@@ -177,7 +179,8 @@ export default function App() {
     skurank: <SkuRank data={data} pv={{ sku: skuView(data.blocks) }} time={time} />,
     itg: data.itg2 ? <ItgV2 key={data.itg2.fileName || 'itg'} demo={buildItgDemo(data)} /> : <Panel title="ITG"><div className="mut" style={{ marginBottom: 8 }}>Belum ada Excel ITG untuk tim ini (format baru: Target per bulan, Actual, Reward).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Excel ITG</button></Panel>,
     program: <Programs data={data} onUpload={() => setUp(true)} />,
-    dap: <Dap openPreview={setPreview} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
+    dapedit: <Dap editor onEditor={() => setPage('dap')} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
+    dap: <Dap previewOpen={preview?.kind === 'dap'} onEditor={() => setPage('dapedit')} openPreview={setPreview} data={data} mode={effMode} time={time} day={dapDay ?? defaultDapDate(time)} setDay={setDapDay} holidays={holidays} setHolidays={setHolidays} depot={depot} team={team} />,
   }[page];
 
   return (
@@ -192,6 +195,7 @@ export default function App() {
         {data && <span className="chip" title="Waktu upload data utama terakhir">update {fmtUp(data.meta.uploadedAt)}</span>}
         <MusicDock depot={depot || 'kebayoran'} look={look} setLook={setLook} themeStyle={tv} />
         {data && canSnap && <button className="btn sm" onClick={snap}>Simpan PNG</button>}
+        <ViewPrefs />
         <button className="btn coin sm" onClick={() => setUp(true)}>Upload</button>
         <button className="btn sm" onClick={() => { setPhase('section'); setSlots(EMPTY); }}>Beranda</button>
         <button className="btn sm" onClick={logout}>Keluar</button>
@@ -209,7 +213,7 @@ export default function App() {
         <Panel title="Belum ada data">
           <div className="empty">
             <h2>Belum ada data {depotLabel(depot)} · Tim {teamLabel(team)}</h2>
-            <p className="mut">Upload data utama dulu. Qty, GreenStore/MSS, dan database SKU bisa menyusul di slot masing-masing.</p>
+            <p className="mut">Upload data utama dulu. Qty, Market Productivity (GreenStore dan MSS), dan database SKU bisa menyusul di slot masing-masing.</p>
             <button className="btn coin" onClick={() => setUp(true)}>Upload data</button>
           </div>
         </Panel>
@@ -220,7 +224,7 @@ export default function App() {
       {data && (
         <div className="foot">
           {data.meta.fileName || 'data'} · hari kerja {time.hk}/{time.total}{time.overridden ? ' (manual)' : ''} · timegone {Math.round(time.tg * 100)}%
-          {slots.sku ? ' · qty ✓' : ''}{slots.val ? ' · omset SKU ✓' : ''}{slots.prog ? ' · GreenStore/MSS ✓' : ''}{slots.promo?.items?.length ? ` · ${slots.promo.items.length} program ✓` : ''}{slots.skudb ? ' · database SKU ✓' : ''}
+          {slots.sku ? ' · qty ✓' : ''}{slots.val ? ' · omset SKU ✓' : ''}{slots.promo?.items?.length ? ` · ${slots.promo.items.length} program ✓` : ''}{slots.skudb ? ' · database SKU ✓' : ''}
         </div>
       )}
 

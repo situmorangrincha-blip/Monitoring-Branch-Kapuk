@@ -90,7 +90,7 @@ export default function UploadModal({ stores, slots, depot, team, storeMode, tim
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <Panel title="UPLOAD DATA" right={<button className="btn sm" onClick={onClose}>Tutup</button>}>
           <div className="mini" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', marginBottom: 10 }}>
-            {['main', 'sku', 'val', 'market', 'itg', 'ctarget', 'prog', 'skudb', 'progcat', 'promo', 'rules'].map((s) => (
+            {['main', 'sku', 'val', 'market', 'itg', 'ctarget', 'skudb', 'progcat', 'promo', 'rules'].map((s) => (
               <button key={s} className={'it' + (slot === s ? ' sel' : '')} style={{ textAlign: 'left', cursor: 'pointer', borderColor: slot === s ? 'var(--ac)' : undefined, background: slot === s ? 'var(--ac-soft)' : undefined }} onClick={() => { setSlot(s); setRes(null); setErr(''); }}>
                 <div className="h"><span>{SLOT_INFO[s].label}</span><span className={filled(s) ? 'ok' : 'mut'}>{filled(s) ? '●' : '○'}</span></div>
                 <div className="sub">{filled(s) ? `update ${fmtUp(stamp(s))}` : 'belum ada'}</div>

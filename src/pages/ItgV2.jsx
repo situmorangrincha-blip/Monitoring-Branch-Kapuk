@@ -58,7 +58,7 @@ const TITLE = { off: 'Kolom OFF faktur', rec: 'Kolom rekomendasi', on: 'Kolom ON
 const HSRC = [['l3m', 'Rata-rata 3 bulan'], ['lm', 'Bulan lalu'], ['act', 'Bulan data']];
 const numOnly = (t) => { const x = String(t ?? '').trim(); if (!x || !/^[\d.,\s]+$/.test(x)) return 0; const n = parseFloat(x.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1 }) {
+function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf }) {
   const e = r.e;
   const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
   const ov = e.contract?.ov || {};
@@ -129,6 +129,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
         <div className="ctl" style={{ margin: '8px 0 0' }}>
           <button className="btn sm" onClick={() => setGlobalShow(show)} title="Jadikan pengaturan tampilan ini sebagai bawaan untuk semua toko">Jadikan bawaan semua toko</button>
           <button className="btn sm" onClick={() => applyShow(show)} title="Terapkan pengaturan tampilan ini ke toko yang sesuai filter">Terapkan ke {nFilter} toko (filter)</button>
+          {onPdf && <button className="btn sm coin" onClick={onPdf}>Unduh PDF toko ini</button>}
           <span className="mut" style={{ fontSize: 11 }}>Pengaturan ini tidak ikut tercetak di kertas. Isi tabelnya tetap bisa diklik dan diedit di kertas.</span>
         </div>
       </div>
@@ -278,6 +279,15 @@ export default function ItgV2({ demo }) {
   const showOf = (r) => ({ off: true, hist: true, rec: true, on: true, kes: true, wajib: true, sig: true, ...(settings.show || {}), ...(r.e.show || {}), cols: { ...((settings.show || {}).cols || {}), ...((r.e.show || {}).cols || {}) } });
   const setGlobalShow = (sh) => setS({ show: { ...sh } });
   const applyShow = (sh) => setEdits((o) => { const n = { ...o }; for (const r of rows) { const cur = { ...(n[r.id] || {}) }; cur.show = { ...sh }; n[r.id] = cur; } return n; });
+  const [pdfBusy, setPdfBusy] = useState('');
+  const downloadPdf = async (list, name) => {
+    setPdfBusy('Menyusun PDF...');
+    try {
+      const { makeItgContractPdf } = await import('../lib/contractPdf2.js');
+      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko` });
+    } catch (e) { window.alert('Gagal membuat PDF: ' + (e?.message || e)); }
+    setPdfBusy('');
+  };
   const selRow = C.rows.find((r) => r.id === sel);
   const mi = C.mi;
   const classDiff = C.rows.filter((r) => r.classDiff).length;
@@ -310,6 +320,7 @@ export default function ItgV2({ demo }) {
         <div className="grow" />
         <div className="seg">{['jt', 'Rp'].map((u) => <button key={u} className={unit === u ? 'on' : ''} onClick={() => setS({ unit: u })}>{u}</button>)}</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+        <button className="btn coin" disabled={!rows.length || !!pdfBusy} onClick={() => downloadPdf(rows)}>{pdfBusy || `Unduh PDF (${rows.length} kontrak)`}</button>
         <button className="btn pri" onClick={() => fileRef.current?.click()}>Upload Excel ITG</button>
         {nEdit > 0 && <button className="btn" onClick={() => window.confirm('Kembalikan semua angka ke suggest?') && setEdits({})}>Reset {nEdit} toko yang diubah</button>}
       </div>
@@ -322,7 +333,7 @@ export default function ItgV2({ demo }) {
         <div className="kpi" style={{ '--k': '#f0a77c' }}><div className="l">Target 2 bulan</div><div className="v">{jtf(T)}<small>jt</small></div><div className="s">persis dari Excel ITG</div></div>
         <div className="kpi" style={{ '--k': '#7aa89a' }}><div className="l">Actual {m1.label}{m2 && C.rows.some((r) => r.a2) ? ` + ${m2.label}` : ''}</div><div className="v">{jtf(A)}<small>jt</small></div><div className="s">dari kolom Actual{parsed.meta.olap ? ' / OLAP' : ''}</div></div>
         <div className="kpi" style={{ '--k': 'var(--ac)' }}><div className="l">Achievement</div><div className="v">{T ? pcf(A / T) : '-'}</div><div className="s">timegone {pcf(time.tg)} · gap {jtf(Math.max(0, T - A))} jt</div><div className="bar"><i style={{ width: Math.min(100, (T ? A / T : 0) * 100) + '%' }} /></div></div>
-        <div className="kpi" style={{ '--k': '#d98b6a' }}><div className="l">{parsed.meta?.rewardCol ? 'Reward (dari Excel)' : 'Potensi cashback'}</div><div className="v">{jtf(RW, 1)}<small>jt</small></div><div className="s">Rp {rpf(RW)} {parsed.meta?.rewardCol ? '· kolom Reward di Excel ITG' : '· % class × target 2 bulan'}</div></div>
+        <div className="kpi" style={{ '--k': '#d98b6a' }}><div className="l">{parsed.meta?.rewardCol ? `Reward ${(settings.rwMode || 'dua') === 'bulan' ? 'sebulan' : 'total 2 bulan'}` : 'Potensi cashback'}</div><div className="v">{jtf(RW, 1)}<small>jt</small></div><div className="s">Rp {rpf(RW)} {parsed.meta?.rewardCol ? '· kolom Reward di Excel ITG' : '· % class × target 2 bulan'}</div></div>
       </div>
 
       <div className="ctl">
@@ -331,6 +342,10 @@ export default function ItgV2({ demo }) {
         <span className="lbl">Basis</span>
         <div className="seg">{[100, 90, 80, 70].map((v) => <button key={v} className={(settings.pct ?? 100) === v ? 'on' : ''} onClick={() => setS({ pct: v })}>{v}%</button>)}</div>
         <label className="mut" style={{ fontWeight: 600 }}>Minimal <input type="number" style={{ width: 54 }} value={settings.minPct ?? 70} onChange={(e) => setS({ minPct: +e.target.value || 70 })} />%</label>
+        {parsed.meta?.rewardCol && (<>
+          <span className="lbl">Reward</span>
+          <div className="seg">{[['dua', 'Total 2 bulan', parsed.meta.rewardCols?.two], ['bulan', 'Sebulan', parsed.meta.rewardCols?.one]].map(([v, l, ok]) => <button key={v} disabled={!ok} title={ok ? '' : 'Kolom ini tidak ada di Excel ITG'} className={(settings.rwMode || 'dua') === v ? 'on' : ''} onClick={() => setS({ rwMode: v })}>{l}</button>)}</div>
+        </>)}
         <span className="lbl">Cashback</span>
         {Object.keys(DEFAULT_PCT).filter((c) => c !== 'Small').map((c) => <label key={c} className="mut" style={{ fontWeight: 600 }}>{c} <input type="number" step="0.25" style={{ width: 56 }} value={settings.classPct?.[c] ?? DEFAULT_PCT[c]} onChange={(e) => setS({ classPct: { ...(settings.classPct || {}), [c]: +e.target.value } })} />%</label>)}
         <div className="grow" />
@@ -361,7 +376,7 @@ export default function ItgV2({ demo }) {
               <span className="chips" style={{ marginTop: 6 }}>{[['sales', 'Salesman'], ['cls', 'Class'], ['visits', 'Kunjungan'], ['T', 'Target 2 bln'], ['t1', `Target ${m1.label}`], ['t2', `Target ${m2?.label}`], ['a1', `Act ${m1.label}`], ['a2', `Act ${m2?.label}`], ['p1', `% ${m1.label}`], ['p2', `% ${m2?.label}`], ['pt', '% Total'], ['status', 'Status'], ['tUsed', 'Target dipakai'], ['cb', 'Cashback']].map(([k, l]) => <label key={k} className={'tog' + (tc(k) ? ' on' : '')}><input type="checkbox" checked={tc(k)} onChange={() => setS({ tcols: { ...(settings.tcols || {}), [k]: !tc(k) } })} />{l}</label>)}</span>
             </details>
             <div className="scroll"><table>
-              <thead><tr><th className="l">Toko</th>{tc('sales') && <th className="l">Salesman</th>}{tc('cls') && <th className="l">Class</th>}{tc('visits') && <th title="Kunjungan per bulan (dari JKS)">Kunj</th>}{tc('T') && <th>Target 2 bln</th>}{tc('t1') && <th>Target {m1.label}</th>}{tc('t2') && <th>Target {m2?.label}</th>}{tc('a1') && <th>Act {m1.label}</th>}{tc('a2') && <th>Act {m2?.label}</th>}{tc('p1') && <th>% {m1.label}</th>}{tc('p2') && <th>% {m2?.label}</th>}{tc('pt') && <th>% Total</th>}{tc('status') && <th className="l">Status</th>}{tc('tUsed') && <th title="Target sesuai pilihan Dasar target">Target dipakai</th>}{tc('cb') && <th title="% class × target 2 bulan">{parsed.meta?.rewardCol ? 'Reward (Rp)' : 'Cashback (Rp)'}</th>}<th /></tr></thead>
+              <thead><tr><th className="l">Toko</th>{tc('sales') && <th className="l">Salesman</th>}{tc('cls') && <th className="l">Class</th>}{tc('visits') && <th title="Kunjungan per bulan (dari JKS)">Kunj</th>}{tc('T') && <th>Target 2 bln</th>}{tc('t1') && <th>Target {m1.label}</th>}{tc('t2') && <th>Target {m2?.label}</th>}{tc('a1') && <th>Act {m1.label}</th>}{tc('a2') && <th>Act {m2?.label}</th>}{tc('p1') && <th>% {m1.label}</th>}{tc('p2') && <th>% {m2?.label}</th>}{tc('pt') && <th>% Total</th>}{tc('status') && <th className="l">Status</th>}{tc('tUsed') && <th title="Target sesuai pilihan Dasar target">Target dipakai</th>}{tc('cb') && <th title="% class × target 2 bulan">{parsed.meta?.rewardCol ? ((settings.rwMode || 'dua') === 'bulan' ? 'Reward 1 bln (Rp)' : 'Reward 2 bln (Rp)') : 'Cashback (Rp)'}</th>}<th /></tr></thead>
               <tbody>{rows.map((r) => {
                 const p = patchOf(r.id);
                 return (
@@ -388,7 +403,7 @@ export default function ItgV2({ demo }) {
             </table></div>
             <div className="mut" style={{ padding: '6px 12px', fontSize: 11.5 }}>Klik angka untuk mengubah (oranye = diubah, ↺ = kembali ke suggest). Klik “Kontrak ›” (atau barisnya) untuk melihat dan mengedit kontrak toko; tab “Kontrak” menampilkan satu toko penuh dengan tombol sebelumnya / berikutnya. Warna persen: hijau = sesuai atau di atas laju timegone, kuning = sampai 70% dari laju, merah = di bawahnya.</div>
           </div>
-          {selRow && <div className="pw"><Contract r={selRow} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
+          {selRow && <div className="pw"><Contract r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
         </div>
       )}
 
@@ -405,7 +420,7 @@ export default function ItgV2({ demo }) {
               <button className="btn sm" disabled={ci < 0 || ci >= rows.length - 1} onClick={() => setSel(rows[ci + 1].id)}>Berikutnya ›</button>
               <span className="mut">{ci + 1} dari {rows.length} toko (mengikuti filter di atas: salesman, hari kunjungan, tanggal). Semua angka di kertas bisa diklik dan diedit.</span>
             </div>
-            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract r={cr} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
+            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
           </div>
         );
       })()}

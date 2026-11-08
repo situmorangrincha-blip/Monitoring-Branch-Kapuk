@@ -11,7 +11,7 @@
   --dmg: #e5484d;
   --ac: #8b7bd8; --ac-d: #5b4aa8; --ac-soft: #f0edfb; --ac-line: #d9d3f3;
   --mp: var(--ac);
-  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ui: 'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 [data-depot='kapuk'] { --ac: #4a8fdb; --ac-d: #1f5fa8; --ac-soft: #eaf3fd; --ac-line: #c9def5; }
 * { box-sizing: border-box; }

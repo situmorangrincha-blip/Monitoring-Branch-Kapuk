@@ -10,8 +10,7 @@ export const IND = [
   { id: 'ec', label: 'EC (Effective Call)', w: 10, how: 'EC actual ÷ EC target per hari (file Market Productivity), maksimal 100' },
   { id: 'ac', label: 'AC (Actual Call)', w: 5, how: 'AC actual ÷ AC target per hari (file Market Productivity), maksimal 100' },
   { id: 'itg', label: 'ITG', w: 15, how: 'Actual ITG ÷ (target ITG x timegone periode ITG), maksimal 100' },
-  { id: 'mss', label: 'MSS', w: 5, how: 'MSS actual ÷ MSS target (file Market Productivity), maksimal 100' },
-  { id: 'gs', label: 'GreenStore', w: 5, how: 'actual ÷ target GreenStore (slot GreenStore lama), maksimal 100' },
+  { id: 'mss', label: 'MSS', w: 10, how: 'MSS actual ÷ MSS target (file Market Productivity), maksimal 100' },
 ];
 export const DEFAULT_W = Object.fromEntries(IND.map((i) => [i.id, i.w]));
 const cap = (v) => Math.max(0, Math.min(100, v));
@@ -31,9 +30,6 @@ export function scoreSalesman(data, name, mode, time, W = DEFAULT_W) {
   const par = stores.filter((s) => s.pj);
   const pT = sum(par, (s) => (mode === 'bti' && s.tgtBti != null ? s.tgtBti : s.tgt));
   ind.pareto = par.length && pT > 0 && tg > 0 ? { raw: sum(par, (s) => s.act) / (pT * tg), score: cap((sum(par, (s) => s.act) / (pT * tg)) * 100), note: `${par.length} toko Pareto` } : null;
-  const gs = (data.prog || []).filter((x) => /green/i.test(x.p) && !x.id && x.s && x.s.toLowerCase() === name.toLowerCase());
-  const gT = sum(gs, (x) => x.t);
-  ind.gs = gT > 0 ? { raw: sum(gs, (x) => x.a) / gT, score: cap((sum(gs, (x) => x.a) / gT) * 100), note: `${sum(gs, (x) => x.a)} dari ${gT}` } : null;
   const lm = sum(stores, (s) => s.lm);
   ind.growth = lm > 0 && tg > 0 ? { raw: act / (lm * tg), score: cap((act / (lm * tg)) * 100), note: `LM ${Math.round(lm / 1e6)} jt` } : null;
 

@@ -20,7 +20,13 @@ export function parseItg2(wb, o = {}) {
   if (hr < 0) throw new Error('Header ITG tidak ketemu.');
   const H = g[hr].map((v) => str(v));
   const col = (...ks) => H.findIndex((h) => ks.includes(key(h)));
-  const iRw = col('REWARD', 'REWARDACTUAL', 'ACTUALREWARD', 'CASHBACK'), iS = col('NAMASALESMAN', 'SALESMAN'), iDepo = col('DEPO'), iId = col('IDPELANGGAN'), iName = col('NAMAPELANGGAN'), iCls = col('CLASS'), iT2 = col('TARGET2BULAN'), iHk = col('HARIKUNJUNGAN', 'HARIKUNJ');
+  const iS = col('NAMASALESMAN', 'SALESMAN'), iDepo = col('DEPO'), iId = col('IDPELANGGAN'), iName = col('NAMAPELANGGAN'), iCls = col('CLASS'), iT2 = col('TARGET2BULAN'), iHk = col('HARIKUNJUNGAN', 'HARIKUNJ');
+  // kolom reward: "Reward Total 2 Bulan" (total) dan "Reward Sebulan"; satu kolom Reward saja dianggap total dua bulan
+  const rwCols = H.map((h, i) => ({ i, k: key(h) })).filter((x) => /^(REWARD|CASHBACK)/.test(x.k));
+  let iRw1 = -1, iRw2 = -1;
+  for (const c of rwCols) { if (/SEBULAN|1BULAN|SATUBULAN|PERBULAN|BULANAN/.test(c.k) && iRw1 < 0) iRw1 = c.i; else if (/TOTAL|2BULAN|DUABULAN|DUA/.test(c.k) && iRw2 < 0) iRw2 = c.i; }
+  const restRw = rwCols.filter((c) => c.i !== iRw1 && c.i !== iRw2);
+  if (iRw2 < 0 && restRw.length) iRw2 = restRw[0].i; else if (iRw1 < 0 && restRw.length) iRw1 = restRw[0].i;
   const tcols = [], acols = [];
   H.forEach((h, i) => {
     let m = /^TARGET\s+([A-Za-z]{3})\w*\s*(\d{2,4})?$/i.exec(h.trim());
@@ -61,12 +67,12 @@ export function parseItg2(wb, o = {}) {
       if (v == null && k === 0 && olap) { v = olap.get(id) ?? 0; fromOlap++; }
       return v == null ? null : Math.round(v);
     });
-    items.push({ id, sales: str(row[iS]), depo: iDepo >= 0 ? str(row[iDepo]) : '', name: str(row[iName]) || id, cls: str(row[iCls]), t, t2: t2 || t.reduce((x, y) => x + y, 0), a, rw: iRw >= 0 ? Math.round(num(row[iRw]) ?? 0) : null, hk: iHk >= 0 ? str(row[iHk]) : '' });
+    items.push({ id, sales: str(row[iS]), depo: iDepo >= 0 ? str(row[iDepo]) : '', name: str(row[iName]) || id, cls: str(row[iCls]), t, t2: t2 || t.reduce((x, y) => x + y, 0), a, rw2: iRw2 >= 0 ? Math.round(num(row[iRw2]) ?? 0) : null, rw1: iRw1 >= 0 ? Math.round(num(row[iRw1]) ?? 0) : null, hk: iHk >= 0 ? str(row[iHk]) : '' });
   }
   if (!items.length) throw new Error('Tabel ITG terbaca tapi kosong.');
   if (actIdx[0] < 0 && !olap) warn.push('Kolom Actual dan sheet OLAP tidak ada: Actual dianggap 0 (atau diambil dari data omset toko kalau ada).');
   if (fromOlap) warn.push(`${fromOlap} toko memakai Actual dari sheet OLAP karena kolom Actual kosong.`);
-  return { v2: true, items, months, meta: { rewardCol: items.some((x) => x.rw != null), depo: items[0]?.depo || '', region: olapMeta.region || '', period: olapMeta.period || '', sheet: name, actualCol: actIdx.map((x) => x >= 0), olap: !!olap }, warnings: warn, fileName: o.fileName || '' };
+  return { v2: true, items, months, meta: { rewardCol: items.some((x) => x.rw2 != null || x.rw1 != null), rewardCols: { two: items.some((x) => x.rw2 != null), one: items.some((x) => x.rw1 != null) }, depo: items[0]?.depo || '', region: olapMeta.region || '', period: olapMeta.period || '', sheet: name, actualCol: actIdx.map((x) => x >= 0), olap: !!olap }, warnings: warn, fileName: o.fileName || '' };
 }
 
 export const classOf = (cc5) => { const u = String(cc5 || '').toUpperCase(); return /SUPER ?BIG/.test(u) ? 'Superbig' : /BIG/.test(u) ? 'Big' : /MEDIUM/.test(u) ? 'Medium' : /SMALL/.test(u) ? 'Small' : ''; };
@@ -111,10 +117,14 @@ export function computeItg2(parsed, stores, time, edits = {}, settings = {}, hol
     let status = 'berjalan';
     if (done2) status = p1 >= 0.7 && p2 >= 0.7 && total >= 1 ? 'tercapai' : 'gagal syarat';
     else if (done1 && p1 < 0.7) status = 'gagal syarat';
-    const hasRw = it.rw != null;
-    const cpctAuto = hasRw ? (T > 0 ? (it.rw / T) * 100 : 0) : cp[cls] ?? 0;
+    // reward dari Excel: total dua bulan atau sebulan (pilihan di pengaturan); tanpa kolom reward dipakai persen class x target dua bulan
+    const rwMode = settings.rwMode === 'bulan' ? 'bulan' : 'dua';
+    const rwSel = rwMode === 'bulan' ? (it.rw1 ?? it.rw2) : (it.rw2 ?? it.rw1);
+    const hasRw = rwSel != null;
+    const rwBase = hasRw && rwMode === 'bulan' ? tMonth : T;
+    const cpctAuto = hasRw ? (rwBase > 0 ? (rwSel / rwBase) * 100 : 0) : cp[cls] ?? 0;
     const cpct = e.cpct ?? cpctAuto;
-    return { id: it.id, hist: { lm: st?.lm ?? null, l3m: st?.l3m ?? null, act: st?.act ?? null }, mi, vdays, wdays, basis: b, name: it.name, sales, cls, classDiff, tplClass: it.cls, jksClass: jc, route, visits, visitsAuto, freq: freqLabel(visitsAuto), t1, t2, T, a1, a2, A, tMonth, per100, per70: Math.round((per100 * minPct) / 100), pctUse, minPct, tUsed, tUsedAuto, p1, p2, total, status, cpct, rewardAuto: hasRw ? it.rw : Math.round((T * cpct) / 100), reward: e.reward ?? (hasRw && e.cpct == null ? it.rw : Math.round((T * cpct) / 100)), fromExcelReward: hasRw, gap: Math.max(0, T - A), auto: { T: it.t2 || t1 + t2, t1: it.t[0] ?? 0, t2: it.t[1] ?? 0, a1: it.a[0] ?? 0, a2: it.a[1] ?? 0, visits: visitsAuto, tUsed: tUsedAuto, cls: jc || it.cls || '-', cpct: cpctAuto }, edited: Object.keys(e).filter((k) => !['dap', 'contract'].includes(k)).length > 0, e };
+    return { id: it.id, hist: { lm: st?.lm ?? null, l3m: st?.l3m ?? null, act: st?.act ?? null }, mi, vdays, wdays, basis: b, name: it.name, sales, cls, classDiff, tplClass: it.cls, jksClass: jc, route, visits, visitsAuto, freq: freqLabel(visitsAuto), t1, t2, T, a1, a2, A, tMonth, per100, per70: Math.round((per100 * minPct) / 100), pctUse, minPct, tUsed, tUsedAuto, p1, p2, total, status, cpct, rewardAuto: hasRw ? rwSel : Math.round((T * cpct) / 100), reward: e.reward ?? (hasRw && e.cpct == null ? rwSel : Math.round((rwBase * cpct) / 100)), fromExcelReward: hasRw, rwMode, rwBase, gap: Math.max(0, T - A), auto: { T: it.t2 || t1 + t2, t1: it.t[0] ?? 0, t2: it.t[1] ?? 0, a1: it.a[0] ?? 0, a2: it.a[1] ?? 0, visits: visitsAuto, tUsed: tUsedAuto, cls: jc || it.cls || '-', cpct: cpctAuto }, edited: Object.keys(e).filter((k) => !['dap', 'contract'].includes(k)).length > 0, e };
   });
   return { rows, mi, basis };
 }

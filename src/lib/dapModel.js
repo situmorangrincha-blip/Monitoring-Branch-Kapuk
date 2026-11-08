@@ -3,7 +3,8 @@ import { LABELS, dapForDate, parseRoute, roundUp, visitDays, weekdayName } from 
 import { visitsInMonth } from './dapAuto.js';
 import { ctargetIndex, nk, valueOfStore } from './ctarget.js';
 
-const rp = (n) => Math.round(n || 0).toLocaleString('id-ID');
+let UNIT = 'rp';
+const rp = (n) => (UNIT === 'jt' ? ((n || 0) / 1e6).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Math.round(n || 0).toLocaleString('id-ID'));
 const qf = (n) => (Number.isInteger(n) ? n.toLocaleString('id-ID') : (n || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 }));
 const pc = (r) => (r == null ? '-' : Math.round(r * 100) + '%');
 
@@ -97,6 +98,8 @@ function storeProg(data, s) {
 
 // susun seluruh isi DAP satu tanggal
 export function buildDap(data, time, d, holidays, cfg) {
+  UNIT = cfg.unit === 'jt' ? 'jt' : 'rp';
+  cfg = { ...cfg, progpick: [] }; // GreenStore dan MSS sekarang ada di section Market Productivity
   const res = dapForDate(data, time.y, time.m, d, holidays);
   const byKey = new Map(data.stores.map((s) => [s.id + '|' + s.sales.toUpperCase(), s]));
   let keys = cfg.cols.filter((k) => k !== 'tv');
