@@ -65,6 +65,7 @@ function ProgTable({ t, progList, progCount, wilayah = [], onChange, onDelete, o
         <div className="seg">{[['ON', 'ON faktur'], ['OFF', 'OFF faktur'], ['ALL', 'Semua']].map(([v, l]) => <button key={v} className={(t.jenis || 'ON') === v ? 'on' : ''} onClick={() => onChange({ jenis: v })}>{l}</button>)}</div>
         <div className="seg" title="Program bertingkat (strata): tampilkan semua tingkat atau hanya yang tertinggi">{[['all', 'Semua tingkat'], ['top', 'Tertinggi'], ].map(([v, l]) => <button key={v} className={(t.tiers || 'all') === v ? 'on' : ''} onClick={() => onChange({ tiers: v })}>{l}</button>)}</div>
         {wilayah.length > 0 && <select className="cell" value={t.wilayah || 'ALL'} onChange={(e) => onChange({ wilayah: e.target.value })} title="Wilayah untuk skema strata diskon"><option value="ALL">Strata: semua wilayah</option>{wilayah.map((w) => <option key={w} value={w}>Strata: {w}</option>)}</select>}
+        <label className={'tog' + (t.potOnly ? ' on' : '')} style={{ cursor: 'pointer' }} title="Tampilkan hanya baris yang punya benefit Rp (sembunyikan program persen / tanpa nilai)"><input type="checkbox" checked={!!t.potOnly} onChange={() => onChange({ potOnly: !t.potOnly })} />Hanya yang ada benefit Rp</label>
         <label className="tog on" style={{ cursor: 'pointer' }}><input type="checkbox" checked={t.on !== false} onChange={() => onChange({ on: t.on === false })} />Tampil</label>
         <span className="grow" />
         <button className="btn sm" disabled={!canUp} onClick={() => onMove(-1)}>↑</button>
@@ -106,7 +107,7 @@ const SHOW_LABEL = [['off', 'OFF faktur'], ['hist', 'Histori pengambilan'], ['re
 const COLS = {
   off: [['target', 'Target'], ['actual', 'Actual'], ['pct', '%'], ['gap', 'Gap'], ['benefit', 'Benefit'], ['reward', 'Reward']],
   rec: [['karton', 'Karton'], ['harga', 'Harga/dus'], ['nilai', 'Nilai'], ['disk', 'Disk %'], ['pot', 'Potongan']],
-  on: [['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon'], ['pot', 'Potongan'], ['ambil', 'Pengambilan']],
+  on: [['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon'], ['pot', 'Benefit toko'], ['ambil', 'Pengambilan']],
 };
 const TITLE = { off: 'Kolom OFF faktur', rec: 'Kolom rekomendasi', on: 'Kolom tabel program' };
 const DEFAULT_TABLES = [{ id: 't1', title: 'Program ON faktur', jenis: 'ON', tiers: 'all', picks: [], on: true }];
@@ -130,7 +131,9 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const potL = (l) => l.pv ?? Math.round((nilai(l) * (l.d || 0)) / 100);
   const valAuto = lines.reduce((a, l) => a + nilai(l), 0), potAuto = lines.reduce((a, l) => a + potL(l), 0);
   const val = OV('val', valAuto), pot = OV('pot', potAuto);
-  const onPotAuto = allPtRows.reduce((a, x) => a + numOnly(x.pot), 0), onPot = OV('onpot', onPotAuto);
+  const potSum = (rows) => rows.reduce((a, x) => a + numOnly(x.pot), 0);
+  const offPotAuto = show.on ? ptRows.filter((x) => x.tbl.jenis === 'OFF').reduce((a, x) => a + potSum(x.rows), 0) : 0;
+  const onPotAuto = ptRows.filter((x) => x.tbl.jenis !== 'OFF').reduce((a, x) => a + potSum(x.rows), 0), onPot = OV('onpot', onPotAuto);
   const per = r.tUsed;
   const label = r.basis === 'visit' ? 'per kunjungan' : r.basis === 'bulan' ? 'sebulan' : 'dua bulan';
   const mm = months.map((m) => m.label).join(' – ');
@@ -145,7 +148,9 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const sP = sT > 0 ? sA / sT : null;
   const setActual = (x) => patch((c) => { const n = { ...c }; const v = x - r.a2; if (Math.round(v) === Math.round(r.auto.a1)) delete n.a1; else n.a1 = Math.max(0, Math.round(v)); return n; });
   const setPct = (x) => setActual(((x ?? 0) / 100) * r.T);
-  const totBenAuto = (show.off ? r.reward : 0) + (show.rec && lines.length ? pot * r.visits : 0) + (show.on ? onPot : 0);
+  const offTotAuto = (show.off ? r.reward : 0) + offPotAuto, offTot = OV('offtot', offTotAuto);
+  const recBen = show.rec && lines.length ? pot * r.visits : 0;
+  const totBenAuto = offTot + recBen + (show.on ? onPot : 0);
   const totBen = OV('tot', totBenAuto);
   const nShown = SHOW_LABEL.filter(([k]) => show[k]).length;
   const toggleCol = (g, k) => patch((c) => ({ ...c, show: { ...(c.show || {}), cols: { ...((c.show || {}).cols || {}), [g + '.' + k]: !cv(g, k) } } }));
@@ -272,7 +277,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
             <div key={tbl.id}>
               <h4>{tbl.title}</h4>
               <table>
-                <thead><tr><th className="l">Program</th>{cv('on', 'min') && <th>Min order</th>}{cv('on', 'sat') && <th>Satuan</th>}{cv('on', 'dis') && <th>Diskon / reward</th>}{cv('on', 'pot') && <th>Potongan</th>}{cv('on', 'ambil') && <th title="Isi hasil pengambilan toko dari program ini. Angka murni dihitung sebagai Rp dan ikut ke Kesimpulan; tulis dengan satuan (mis. 12 ctn) kalau tidak mau ikut dijumlah">Pengambilan</th>}<th /></tr></thead>
+                <thead><tr><th className="l">Program</th>{cv('on', 'min') && <th>Min order</th>}{cv('on', 'sat') && <th>Satuan</th>}{cv('on', 'dis') && <th>Diskon / reward</th>}{cv('on', 'pot') && <th title="Benefit yang didapat toko dari program ini (Rp). Terisi otomatis kalau katalog punya nilai potongan Rp; program persen atau harga khusus diisi manual">Benefit toko</th>}{cv('on', 'ambil') && <th title="Isi hasil pengambilan toko dari program ini. Angka murni dihitung sebagai Rp dan ikut ke Kesimpulan; tulis dengan satuan (mis. 12 ctn) kalau tidak mau ikut dijumlah">Pengambilan</th>}<th /></tr></thead>
                 <tbody>
                   {rws.map((x) => {
                     const sx = (k) => (v) => setPt(tbl.id, (c) => {
@@ -289,12 +294,15 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
                         {cv('on', 'min') && <td><Ed text v={x.min || ''} auto={x.auto?.min ?? ''} set={(v) => sx('min')(v ?? '')} /></td>}
                         {cv('on', 'sat') && <td><Ed text v={x.sat || ''} auto={x.auto?.sat ?? ''} set={(v) => sx('sat')(v ?? '')} /></td>}
                         {cv('on', 'dis') && <td><Ed text v={x.dis || ''} auto={x.auto?.dis ?? ''} set={(v) => sx('dis')(v ?? '')} /></td>}
-                        {cv('on', 'pot') && <td><Ed v={numOnly(x.pot)} auto={0} unit="Rp" set={(v) => sx('pot')(v ?? '')} /></td>}
+                        {cv('on', 'pot') && <td><Ed v={numOnly(x.pot)} auto={numOnly(x.auto?.pot)} unit="Rp" set={(v) => sx('pot')(v ?? '')} /></td>}
                         {cv('on', 'ambil') && <td className="blank"><Ed text v={x.ambil || ''} auto="" set={(v) => sx('ambil')(v ?? '')} /></td>}
                         <td><button className="rst" title={x.extra ? 'Hapus baris' : 'Sembunyikan baris'} onClick={del}>x</button></td>
                       </tr>
                     );
                   })}
+                  {cv('on', 'pot') && rws.length > 0 && (
+                    <tr className="tot"><td className="l" colSpan={1 + ['min', 'sat', 'dis'].filter((k) => cv('on', k)).length}><b>Total Benefit {tbl.jenis === 'OFF' ? 'OFF' : tbl.jenis === 'ON' ? 'ON' : ''} Faktur</b></td><td><b>{potSum(rws).toLocaleString('id-ID')}</b></td>{cv('on', 'ambil') && <td />}<td /></tr>
+                  )}
                   {!rws.length && <tr><td className="l mut" colSpan={7}>{!hasCatalog ? 'Katalog program belum di-upload (section Program). Tambahkan baris manual.' : !(tbl.picks || []).length ? 'Belum ada program dipilih untuk tabel ini. Pilih di pengaturan di atas kertas.' : 'Tidak ada program terpilih yang berlaku untuk toko ini.'}</td></tr>}
                 </tbody>
               </table>
@@ -304,7 +312,6 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
               </div>
             </div>
           ))}
-          {show.on && ptRows.length > 0 && cv('on', 'pot') && <div className="hrow"><span>Total potongan program</span><b><Ed v={onPot} auto={onPotAuto} unit="Rp" set={setOv('onpot')} /></b></div>}
 
           {show.kes && (<>
             <h4>Kesimpulan pengambilan kunjungan</h4>
@@ -319,6 +326,13 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
             </table>
           </>)}
 
+          {nShown > 0 && (show.off || show.rec || show.on) && (
+            <table className="sumtbl"><tbody>
+              {(show.off || offPotAuto > 0) && <tr><td className="l"><b>Total Benefit OFF Faktur</b></td><td><b><Ed v={offTot} auto={offTotAuto} unit="Rp" set={setOv('offtot')} /></b></td></tr>}
+              {recBen > 0 && <tr><td className="l">Potongan strata dari rekomendasi order ({r.visits} kunjungan)</td><td><Ed v={recBen} auto={recBen} unit="Rp" set={() => {}} /></td></tr>}
+              {show.on && ptRows.some((x) => x.tbl.jenis !== 'OFF') && <tr><td className="l"><b>Total Benefit ON Faktur</b></td><td><b><Ed v={onPot} auto={onPotAuto} unit="Rp" set={setOv('onpot')} /></b></td></tr>}
+            </tbody></table>
+          )}
           {nShown > 0 && (show.off || show.rec || show.on) && (
             <div className="totbar"><span>Estimasi total benefit program</span><b><Ed v={totBen} auto={totBenAuto} unit="Rp" set={setOv('tot')} /></b></div>
           )}

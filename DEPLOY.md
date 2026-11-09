@@ -69,3 +69,9 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Yang dipilih adalah daftar program untuk semua toko; di kertas hanya muncul program yang cocok dengan toko itu** (channel, ukuran, penanda ITG, dan daftar peserta, sama seperti section Program). Skema strata diskon dari sheet STRATA ikut bisa dipilih, satu baris per tingkat.
 - **Di kertas** tiap baris bisa diedit, disembunyikan (x), dan ditambah manual (+ tambah baris). Kolom Pengambilan tetap kosong untuk diisi; Potongan dan Pengambilan berupa angka ikut ke Total potongan dan Kesimpulan. Semuanya ikut ke PDF.
 - Isian manual lama di tabel ON faktur (versi sebelumnya) tidak dipindahkan; isi ulang lewat + tambah baris kalau perlu.
+
+## Update 7 (9 Nov 2026, malam): benefit toko dan total benefit kembali
+- **Kolom "Benefit toko" di tabel program terisi otomatis** dari Excel program: nilai "Potongan Rp ..." per baris (atau Nilai Reward angka bila Tipe Reward = potongan Rp). Program persen atau harga khusus tanpa nilai Rp dibiarkan kosong untuk diisi manual (angka bisa diedit, oranye = diubah).
+- **Setiap tabel program punya baris Total Benefit** (Total Benefit ON Faktur / Total Benefit OFF Faktur).
+- **Rincian total di bawah Kesimpulan:** Total Benefit OFF Faktur (reward ITG + tabel OFF), Total Benefit ON Faktur, dan **Estimasi total benefit program = OFF + ON**. Semuanya ikut ke PDF.
+- Opsi per tabel **"Hanya yang ada benefit Rp"** menyembunyikan program persen atau tanpa nilai Rp, supaya tabel ON faktur berisi program yang benefit-nya bisa dijumlahkan seperti di kontrak lama.

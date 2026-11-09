@@ -28,6 +28,14 @@ const rewardText = (r) => {
   return t;
 };
 
+// benefit toko (Rp) per baris program: "Potongan Rp N" di Nilai Reward, atau Nilai Reward angka bila Tipe Reward = potongan Rp. Persen / harga khusus tidak dihitung (isi manual).
+export function potOf(r) {
+  const v = r['Nilai Reward'];
+  if (typeof v === 'string' && /potongan\s*rp\s*([\d.]+)/i.test(v)) return +/potongan\s*rp\s*([\d.]+)/i.exec(v)[1].replace(/\./g, '') || 0;
+  if (/potongan\s*rp/i.test(String(r['Tipe Reward'] || '')) && typeof v === 'number') return v;
+  return 0;
+}
+
 // baris tabel untuk satu toko. Skema strata: satu baris per tingkat. Program biasa: satu baris per baris program yang berlaku untuk toko itu.
 export function rowsForTable(tbl, catalog, ctx, st) {
   const picks = tbl.picks || [];
@@ -48,9 +56,9 @@ export function rowsForTable(tbl, catalog, ctx, st) {
   for (const g of groups) {
     if (tbl.jenis && tbl.jenis !== 'ALL' && jenisOf(g.jenis) !== tbl.jenis) continue;
     const nama = g.nama + (g.status === 'perlu daftar' ? ' (perlu daftar)' : '');
-    g.rows.forEach((r, i) => out.push({ key: `${g.code}|p${i}`, code: g.code, n: nama, min: r['Min Order'] === '' || r['Min Order'] == null ? '' : String(r['Min Order']), sat: String(r.Satuan || ''), dis: rewardText(r) }));
+    g.rows.forEach((r, i) => out.push({ key: `${g.code}|p${i}`, code: g.code, n: nama, min: r['Min Order'] === '' || r['Min Order'] == null ? '' : String(r['Min Order']), sat: String(r.Satuan || ''), dis: rewardText(r), pot: potOf(r) }));
   }
-  return out;
+  return tbl.potOnly ? out.filter((r) => r.pot > 0) : out;
 }
 
 // gabungkan baris hasil katalog dengan hasil edit per toko: { hide:{key:1}, ov:{key:{n,min,sat,dis,pot,ambil}}, extra:[...] }

@@ -100,3 +100,8 @@
 .iv .prow:hover { background: var(--acs); }
 .iv .prow.on { background: var(--acs); }
 .iv .prow .pn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* total benefit per tabel program dan rincian total di kertas */
+.iv .paper tr.tot td { background: var(--acs); border-top: 1.5px solid var(--ac); }
+.iv .paper .sumtbl { margin-top: 8px; }
+.iv .paper .sumtbl td { padding: 5px 8px; }

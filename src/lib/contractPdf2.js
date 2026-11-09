@@ -14,7 +14,9 @@ function view(r, show, tg, pt) {
   const nilai = (l) => l.nv ?? (l.k || 0) * (l.h || 0);
   const potL = (l) => l.pv ?? Math.round((nilai(l) * (l.d || 0)) / 100);
   const val = OV('val', lines.reduce((a, l) => a + nilai(l), 0)), pot = OV('pot', lines.reduce((a, l) => a + potL(l), 0));
-  const onPot = OV('onpot', on.reduce((a, x) => a + numOnly(x.pot), 0));
+  const potSum = (f) => (pt || []).filter(f).reduce((a, t) => a + (t.rows || []).reduce((b, x) => b + numOnly(x.pot), 0), 0);
+  const offPot = show.on ? potSum((t) => t.tbl.jenis === 'OFF') : 0;
+  const onPot = OV('onpot', potSum((t) => t.tbl.jenis !== 'OFF'));
   const bs = r.basis;
   const mAct = r.mi === 0 ? r.a1 : r.a2;
   const doneV = Math.max(1, Math.round(r.visits * (tg || 1)));
@@ -26,8 +28,10 @@ function view(r, show, tg, pt) {
   const kTgt = OV('k_tgt', r.per100), kMin = OV('k_min', r.per70);
   const ambil = OV('ambil', on.reduce((a, x) => a + numOnly(x.ambil), 0));
   const status = ambil <= 0 ? 'belum diisi' : ambil >= kTgt ? 'capai target' : ambil >= kMin ? 'lolos minimal' : 'di bawah minimal';
-  const totBen = OV('tot', (show.off ? r.reward : 0) + (show.rec && lines.length ? pot * r.visits : 0) + (show.on ? onPot : 0));
-  return { e, OV, lines, on, nilai, potL, val, pot, onPot, bs, sT, sA, gap, pct, kTgt, kMin, ambil, status, totBen };
+  const offTot = OV('offtot', (show.off ? r.reward : 0) + offPot);
+  const recBen = show.rec && lines.length ? pot * r.visits : 0;
+  const totBen = OV('tot', offTot + recBen + (show.on ? onPot : 0));
+  return { e, OV, lines, on, nilai, potL, val, pot, onPot, offPot, offTot, recBen, bs, sT, sA, gap, pct, kTgt, kMin, ambil, status, totBen };
 }
 
 // items: [{ r, show }] ; output: 'save' | 'blob'
@@ -88,20 +92,30 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
     if (show.on) {
       for (const t of pt || []) {
         heading(clean(t.tbl.title).toUpperCase());
-        const cols = [['n', 'Program'], ['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon / reward'], ['pot', 'Potongan'], ['ambil', 'Pengambilan']];
+        const cols = [['n', 'Program'], ['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon / reward'], ['pot', 'Benefit toko'], ['ambil', 'Pengambilan']];
         const use = cols.filter((c) => c[0] === 'n' || cv('on', c[0]));
         const cell = (x, k) => (k === 'pot' ? (numOnly(x.pot) ? RP(numOnly(x.pot)) : '') : clean(x[k] ?? ''));
         const body = t.rows.map((x) => use.map((c) => cell(x, c[0])));
         if (!body.length) body.push(use.map((c, i) => (i === 0 ? 'Tidak ada program terpilih yang berlaku untuk toko ini' : '')));
-        table({ head: [use.map((c) => c[1])], body, columnStyles: { 0: { halign: 'left' } }, bodyStyles: { halign: 'right', minCellHeight: 7 } });
+        const potI = use.findIndex((c) => c[0] === 'pot');
+        if (potI > 0 && t.rows.length) {
+          const tot = t.rows.reduce((a, x) => a + numOnly(x.pot), 0);
+          const tr = use.map(() => ''); tr[0] = `Total Benefit ${t.tbl.jenis === 'OFF' ? 'OFF ' : t.tbl.jenis === 'ON' ? 'ON ' : ''}Faktur`; tr[potI] = RP(tot);
+          body.push(tr);
+        }
+        table({ head: [use.map((c) => c[1])], body, columnStyles: { 0: { halign: 'left' } }, bodyStyles: { halign: 'right', minCellHeight: 7 }, didParseCell: (d) => { if (d.section === 'body' && String(d.row.raw?.[0] || '').startsWith('Total Benefit')) d.cell.styles.fontStyle = 'bold'; } });
       }
-      if ((pt || []).length && cv('on', 'pot')) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Total potongan program: Rp ' + RP(v.onPot), W - 14, cur + 1, { align: 'right' }); cur += 5; }
     }
     if (show.kes) {
       heading('KESIMPULAN PENGAMBILAN KUNJUNGAN');
       table({ body: [['Target per kunjungan', M(v.kTgt)], [`Minimal rekomendasi (${r.minPct}%)`, M(v.kMin)], ['Total pengambilan di kunjungan ini', v.ambil > 0 ? M(v.ambil) : ''], ['Selisih terhadap minimal', v.ambil > 0 ? (v.ambil - v.kMin >= 0 ? '+' : '') + M(v.ambil - v.kMin) : '-'], ['Status', v.status]], columnStyles: { 0: { halign: 'left', fontStyle: 'bold' }, 1: { halign: 'right', minCellHeight: 7 } }, showHead: false });
     }
     if (show.off || show.rec || show.on) {
+      const sum = [];
+      if (show.off || v.offPot > 0) sum.push(['Total Benefit OFF Faktur', 'Rp ' + RP(v.offTot)]);
+      if (v.recBen > 0) sum.push([`Potongan strata dari rekomendasi order (${r.visits} kunjungan)`, 'Rp ' + RP(v.recBen)]);
+      if (show.on && (pt || []).some((t) => t.tbl.jenis !== 'OFF')) sum.push(['Total Benefit ON Faktur', 'Rp ' + RP(v.onPot)]);
+      if (sum.length) table({ body: sum, columnStyles: { 0: { halign: 'left', fontStyle: 'bold' }, 1: { halign: 'right', fontStyle: 'bold' } } });
       doc.setFillColor(...acc); doc.roundedRect(12, cur, W - 24, 8, 2, 2, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
       doc.text('Estimasi total benefit program', 16, cur + 5.4); doc.text('Rp ' + RP(v.totBen), W - 16, cur + 5.4, { align: 'right' }); doc.setTextColor(30, 40, 50); cur += 12;
     }
