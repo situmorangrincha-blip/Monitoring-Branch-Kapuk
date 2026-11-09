@@ -43,28 +43,39 @@ export function rowsForTable(tbl, catalog, ctx, st) {
   const only = new Set(picks.filter((c) => !String(c).startsWith('S:')));
   const groups = only.size ? programsForStore({ progcat: catalog, itgList: null, promos: [] }, st, ctx, only) : [];
   const out = [];
+  const seen = new Map();
+  const dedupe = (k) => { const n = (seen.get(k) || 0) + 1; seen.set(k, n); return n === 1 ? k : `${k}#${n}`; };
   for (const c of picks.filter((x) => String(x).startsWith('S:'))) {
     if (tbl.jenis === 'OFF') continue;
     const nm = String(c).slice(2);
     const multiWil = new Set((catalog.strata || []).filter((x) => String(x.Program).trim() === nm).map((x) => String(x.Wilayah).trim())).size > 1;
     let rows = (catalog.strata || [])
       .filter((x) => String(x.Program).trim() === nm && (!tbl.wilayah || tbl.wilayah === 'ALL' || String(x.Wilayah).trim() === tbl.wilayah))
-      .map((x, i) => ({ key: `${c}|s${i}`, code: c, n: nm + (!tbl.wilayah || tbl.wilayah === 'ALL' ? (multiWil ? ' · ' + String(x.Wilayah).trim() : '') : ''), min: `${x.Dari}${x.Sampai === '' || x.Sampai == null ? '+' : '-' + x.Sampai}`, up: Number(x.Dari) || 0, sat: String(x.Satuan || ''), dis: x['Diskon %'] === '' ? '' : `${x['Diskon %']}%` }));
+      .map((x, i) => ({ key: `${c}|${String(x.Wilayah).trim()}|${x.Dari}`, lkey: `${c}|s${i}`, code: c, n: nm + (!tbl.wilayah || tbl.wilayah === 'ALL' ? (multiWil ? ' · ' + String(x.Wilayah).trim() : '') : ''), min: `${x.Dari}${x.Sampai === '' || x.Sampai == null ? '+' : '-' + x.Sampai}`, up: Number(x.Dari) || 0, sat: String(x.Satuan || ''), dis: x['Diskon %'] === '' ? '' : `${x['Diskon %']}%` }));
     if (tbl.tiers === 'top' && rows.length) rows = [rows.reduce((a, b) => (b.up > a.up ? b : a))];
     out.push(...rows);
   }
   for (const g of groups) {
     if (tbl.jenis && tbl.jenis !== 'ALL' && jenisOf(g.jenis) !== tbl.jenis) continue;
     const nama = g.nama + (g.status === 'perlu daftar' ? ' (perlu daftar)' : '');
-    g.rows.forEach((r, i) => out.push({ key: `${g.code}|p${i}`, code: g.code, n: nama, min: r['Min Order'] === '' || r['Min Order'] == null ? '' : String(r['Min Order']), sat: String(r.Satuan || ''), dis: rewardText(r), pot: potOf(r) }));
+    g.rows.forEach((r, i) => out.push({ key: dedupe(`${g.code}|${r['Min Order'] ?? ''}|${r.Satuan || ''}|${rewardText(r)}`), lkey: `${g.code}|p${i}`, code: g.code, n: nama, min: r['Min Order'] === '' || r['Min Order'] == null ? '' : String(r['Min Order']), sat: String(r.Satuan || ''), dis: rewardText(r), pot: potOf(r) }));
   }
   return tbl.potOnly ? out.filter((r) => r.pot > 0) : out;
 }
 
-// gabungkan baris hasil katalog dengan hasil edit per toko: { hide:{key:1}, ov:{key:{n,min,sat,dis,pot,ambil}}, extra:[...] }
-export function effectiveRows(gen, st) {
-  const hide = st?.hide || {}, ov = st?.ov || {};
-  const rows = gen.filter((x) => !hide[x.key]).map((x) => ({ ...x, ...(ov[x.key] || {}), auto: x, gen: true }));
-  const extra = (st?.extra || []).map((x, i) => ({ key: 'x' + i, n: '', min: '', sat: '', dis: '', pot: '', ambil: '', ...x, extra: true, idx: i }));
-  return [...rows, ...extra];
+// Template tabel (berlaku untuk semua toko): { hide:{key:1}, ov:{key:{n,min,sat,dis}}, extra:[{id,n,min,sat,dis}] }.
+// Per toko: { hide, ov:{key:{...}}, extra:[...] } berisi pengaturan khusus toko, ditambah pot (benefit) dan ambil (pengambilan) yang selalu per toko.
+export const TEXT_FIELDS = ['n', 'min', 'sat', 'dis'];
+export const storeOwnsPt = (ptd) => Object.values(ptd || {}).some((t) => t && (Object.keys(t.hide || {}).length || (t.extra || []).length || Object.values(t.ov || {}).some((o) => TEXT_FIELDS.some((k) => k in (o || {})))));
+export function effectiveRows(gen, st, tpl) {
+  const th = tpl?.hide || {}, tov = tpl?.ov || {}, sh = st?.hide || {}, sov = st?.ov || {};
+  const pick = (o, x) => o[x.key] ?? (x.lkey ? o[x.lkey] : undefined);
+  const rows = gen
+    .filter((x) => !th[x.key] && !sh[x.key] && !(x.lkey && sh[x.lkey]))
+    .map((x) => ({ ...x, ...(pick(tov, x) || {}), ...(pick(sov, x) || {}), auto: x, gen: true }));
+  const tExtra = (tpl?.extra || [])
+    .filter((x) => !sh['x:' + x.id])
+    .map((x) => ({ n: '', min: '', sat: '', dis: '', pot: '', ambil: '', ...x, ...(sov['x:' + x.id] || {}), key: 'x:' + x.id, extra: true, tpl: true, auto: { n: x.n || '', min: x.min || '', sat: x.sat || '', dis: x.dis || '', pot: '', ambil: '' } }));
+  const sExtra = (st?.extra || []).map((x, i) => ({ n: '', min: '', sat: '', dis: '', pot: '', ambil: '', ...x, key: 'xs' + i, extra: true, idx: i }));
+  return [...rows, ...tExtra, ...sExtra];
 }

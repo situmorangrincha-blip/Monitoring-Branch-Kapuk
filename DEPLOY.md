@@ -82,3 +82,9 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - Tombol lama "Jadikan bawaan semua toko" dan "Terapkan ke N toko (filter)" diganti oleh logika di atas.
 - **Penyimpanan di browser kini per depo x tim.** Pengaturan dan edit lama (yang belum dibedakan) dipindahkan otomatis ke depo dan tim pertama yang dibuka setelah update; data lama tidak dihapus dari browser.
 - Item unggulan wajib ikut ke PDF sebagai pengaturan umum.
+
+## Update 9 (9 Nov 2026, malam): tabel ON faktur jadi template untuk semua toko
+- **Perubahan di tabel program (ON/OFF faktur) berlaku untuk semua toko** selama toko dalam mode "Pengaturan umum": baris yang disembunyikan (x), baris tambahan (+ tambah baris), dan teks yang diubah (nama program, min order, satuan, diskon).
+- **Tetap per toko:** angka **Benefit toko** yang diketik, kolom **Pengambilan**, serta semua angka hitungan (target, actual, reward, histori, rekomendasi).
+- **Khusus toko ini** membuat perubahan baris hanya untuk toko itu; **Kembali ke pengaturan umum** menghapus perubahan khusus itu (benefit dan pengambilan tetap); **Jadikan semua toko seperti ini** juga membawa isi tabel program toko itu ke semua toko. Data lama yang sudah lu ubah di satu toko ikut terbaca dan terbawa.
+- Baris dikenali dari isinya (kode program, min order, satuan, diskon), bukan urutan, jadi "sembunyikan baris ini" tepat sasaran di toko mana pun. Template tersimpan di browser per depo x tim bersama pengaturan lain.

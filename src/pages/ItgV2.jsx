@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { DEFAULT_PCT, MON_NAME, computeItg2, parseItg2 } from '../lib/itg2.js';
 import { parseRoute, visitDays } from '../lib/calc.js';
-import { catalogPrograms, effectiveRows, rowsForTable, wilayahOf } from '../lib/itgProg.js';
+import { TEXT_FIELDS, catalogPrograms, effectiveRows, rowsForTable, storeOwnsPt, wilayahOf } from '../lib/itgProg.js';
 import { makeCtx, programsForStore } from '../lib/progcat.js';
 import './itgv2.css';
 
@@ -114,7 +114,7 @@ const DEFAULT_TABLES = [{ id: 't1', title: 'Program ON faktur', jenis: 'ON', tie
 const HSRC = [['l3m', 'Rata-rata 3 bulan'], ['lm', 'Bulan lalu'], ['act', 'Bulan data']];
 const numOnly = (t) => { const x = String(t ?? '').trim(); if (!x || !/^[\d.,\s]+$/.test(x)) return 0; const n = parseFloat(x.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf, gShow, adoptAll, gWajib, setGWajib, setGlobal, pt = [], tables = [], setTables, progList = [], progCount = {}, hasCatalog = false, wilayah = [] }) {
+function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf, gShow, adoptAll, gWajib, setGWajib, setGlobal, tpl = {}, setTpl, pt = [], tables = [], setTables, progList = [], progCount = {}, hasCatalog = false, wilayah = [] }) {
   const e = r.e;
   const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
   const ov = e.contract?.ov || {};
@@ -124,7 +124,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const setLines = (fn) => patch((c) => ({ ...c, contract: { ...(c.contract || {}), lines: fn([...lines]) } }));
   const ptd = e.contract?.pt || {};
   const setPt = (tid, fn) => patch((c) => { const ct = { ...(c.contract || {}) }; const all = { ...(ct.pt || {}) }; all[tid] = fn({ ...(all[tid] || {}) }); ct.pt = all; return { ...c, contract: ct }; });
-  const ptRows = pt.map((x) => ({ ...x, rows: effectiveRows(x.gen, ptd[x.tbl.id]) }));
+  const ptRows = pt.map((x) => ({ ...x, rows: effectiveRows(x.gen, ptd[x.tbl.id], tpl[x.tbl.id]) }));
   const allPtRows = ptRows.flatMap((x) => x.rows);
   const setLine = (i, k) => (x) => setLines((a) => { const l = { ...a[i] }; if (x === undefined) delete l[k]; else l[k] = x; a[i] = l; return a; });
   const nilai = (l) => l.nv ?? (l.k || 0) * (l.h || 0);
@@ -154,7 +154,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const totBen = OV('tot', totBenAuto);
   const nShown = SHOW_LABEL.filter(([k]) => show[k]).length;
   // lingkup pengaturan: umum (semua toko) kecuali toko ini punya pengaturan khusus
-  const own = !!(e.show || e.basis != null || e.pct != null || e.minPct != null);
+  const own = !!(e.show || e.basis != null || e.pct != null || e.minPct != null) || storeOwnsPt(ptd);
   const setShow = (fn) => (own ? patch((c) => ({ ...c, show: fn({ ...(c.show || {}) }) })) : gShow(fn));
   const dropT = (c) => { const n = { ...c }; delete n.tUsed; return n; };
   const setBasis = (v) => (own ? patch((c) => ({ ...dropT(c), basis: v })) : (setGlobal({ basis: v }), patch(dropT)));
@@ -163,7 +163,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const wajibV = e.contract?.wajib ?? gWajib ?? '';
   const setWajib = (x) => (own ? patch((c) => ({ ...c, contract: { ...(c.contract || {}), wajib: x ?? '' } })) : setGWajib(x ?? ''));
   const makeOwn = () => patch((c) => ({ ...c, show: { ...show, cols: { ...(show.cols || {}) } }, basis: r.basis, pct: r.pctUse, minPct: r.minPct }));
-  const backToGeneral = () => patch((c) => { const n = { ...c }; delete n.show; delete n.basis; delete n.pct; delete n.minPct; if (n.contract) { const ct = { ...n.contract }; delete ct.wajib; if (Object.keys(ct).length) n.contract = ct; else delete n.contract; } return n; });
+  const backToGeneral = () => patch((c) => { const n = { ...c }; delete n.show; delete n.basis; delete n.pct; delete n.minPct; if (n.contract) { const ct = { ...n.contract }; delete ct.wajib; if (ct.pt) { const pt2 = {}; for (const [tid, t] of Object.entries(ct.pt)) { const ov = {}; for (const [k, v] of Object.entries(t.ov || {})) { const keep = {}; for (const [f, val] of Object.entries(v)) if (!TEXT_FIELDS.includes(f)) keep[f] = val; if (Object.keys(keep).length) ov[k] = keep; } if (Object.keys(ov).length) pt2[tid] = { ov }; } if (Object.keys(pt2).length) ct.pt = pt2; else delete ct.pt; } if (Object.keys(ct).length) n.contract = ct; else delete n.contract; } return n; });
   const toggleCol = (g, k) => setShow((sh) => ({ ...sh, cols: { ...(sh.cols || {}), [g + '.' + k]: !cv(g, k) } }));
   const hsrc = show.hsrc || 'l3m';
   const hmode = show.hmode || 'bulan';
@@ -181,7 +181,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
             <span className="tag y">Khusus toko ini</span>
             <span className="mut" style={{ fontSize: 11.5 }}>Pengaturan toko ini berbeda dari pengaturan umum.</span>
             <button className="btn sm" onClick={backToGeneral}>Kembali ke pengaturan umum</button>
-            <button className="btn sm pri" onClick={() => adoptAll(show, r.basis, r.pctUse, r.minPct, wajibV)} title="Pengaturan toko ini menjadi pengaturan umum, pengaturan khusus di toko lain dihapus">Jadikan semua toko seperti ini</button>
+            <button className="btn sm pri" onClick={() => adoptAll({ sh: show, basis: r.basis, pct: r.pctUse, minPct: r.minPct, wajib: wajibV, storeId: r.id, tabs: pt.map((x) => ({ tid: x.tbl.id, gen: x.gen, st: ptd[x.tbl.id] || {} })) })} title="Pengaturan toko ini menjadi pengaturan umum, pengaturan khusus di toko lain dihapus">Jadikan semua toko seperti ini</button>
           </>) : (<>
             <span className="tag g">Pengaturan umum</span>
             <span className="mut" style={{ fontSize: 11.5 }}>Perubahan di sini otomatis berlaku untuk semua toko.</span>
@@ -301,14 +301,21 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
                 <thead><tr><th className="l">Program</th>{cv('on', 'min') && <th>Min order</th>}{cv('on', 'sat') && <th>Satuan</th>}{cv('on', 'dis') && <th>Diskon / reward</th>}{cv('on', 'pot') && <th title="Benefit yang didapat toko dari program ini (Rp). Terisi otomatis kalau katalog punya nilai potongan Rp; program persen atau harga khusus diisi manual">Benefit toko</th>}{cv('on', 'ambil') && <th title="Isi hasil pengambilan toko dari program ini. Angka murni dihitung sebagai Rp dan ikut ke Kesimpulan; tulis dengan satuan (mis. 12 ctn) kalau tidak mau ikut dijumlah">Pengambilan</th>}<th /></tr></thead>
                 <tbody>
                   {rws.map((x) => {
-                    const sx = (k) => (v) => setPt(tbl.id, (c) => {
-                      if (x.extra) { const extra = [...(c.extra || [])]; extra[x.idx] = { ...extra[x.idx], [k]: v ?? '' }; return { ...c, extra }; }
-                      const ov = { ...(c.ov || {}) }; const o = { ...(ov[x.key] || {}) };
-                      if (v === undefined || v === x.auto?.[k]) delete o[k]; else o[k] = v;
-                      if (Object.keys(o).length) ov[x.key] = o; else delete ov[x.key];
-                      return { ...c, ov };
-                    });
-                    const del = () => setPt(tbl.id, (c) => (x.extra ? { ...c, extra: (c.extra || []).filter((_, j) => j !== x.idx) } : { ...c, hide: { ...(c.hide || {}), [x.key]: 1 } }));
+                    const sx = (k) => (v) => {
+                      const perStore = k === 'pot' || k === 'ambil';
+                      const sameAuto = v === undefined || v === x.auto?.[k] || (v === '' && !x.auto?.[k]);
+                      const setOvIn = (c) => { const ov = { ...(c.ov || {}) }; const o = { ...(ov[x.key] || {}) }; if (sameAuto) delete o[k]; else o[k] = v; if (Object.keys(o).length) ov[x.key] = o; else delete ov[x.key]; return { ...c, ov }; };
+                      if (perStore || (own && !(x.extra && !x.tpl))) return setPt(tbl.id, setOvIn);
+                      if (x.extra && !x.tpl) return setPt(tbl.id, (c) => { const extra = [...(c.extra || [])]; extra[x.idx] = { ...extra[x.idx], [k]: v ?? '' }; return { ...c, extra }; });
+                      if (x.tpl) return setTpl(tbl.id, (t) => ({ ...t, extra: (t.extra || []).map((q) => (q.id === x.key.slice(2) ? { ...q, [k]: v ?? '' } : q)) }));
+                      return setTpl(tbl.id, (t) => { const ov = { ...(t.ov || {}) }; const o = { ...(ov[x.key] || {}) }; if (sameAuto) delete o[k]; else o[k] = v; if (Object.keys(o).length) ov[x.key] = o; else delete ov[x.key]; return { ...t, ov }; });
+                    };
+                    const del = () => {
+                      if (x.extra && !x.tpl) return setPt(tbl.id, (c) => ({ ...c, extra: (c.extra || []).filter((_, j) => j !== x.idx) }));
+                      if (x.tpl && !own) return setTpl(tbl.id, (t) => ({ ...t, extra: (t.extra || []).filter((q) => q.id !== x.key.slice(2)) }));
+                      if (own) return setPt(tbl.id, (c) => ({ ...c, hide: { ...(c.hide || {}), [x.key]: 1 } }));
+                      return setTpl(tbl.id, (t) => ({ ...t, hide: { ...(t.hide || {}), [x.key]: 1 } }));
+                    };
                     return (
                       <tr key={x.key}>
                         <td className="l"><Ed text v={x.n || ''} auto={x.auto?.n ?? ''} set={(v) => sx('n')(v ?? '')} /></td>
@@ -328,8 +335,9 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
                 </tbody>
               </table>
               <div className="row" style={{ marginTop: 6 }}>
-                {Object.keys(ptd[tbl.id]?.hide || {}).length > 0 && <button className="btn sm" onClick={() => setPt(tbl.id, (c) => ({ ...c, hide: {} }))}>Tampilkan {Object.keys(ptd[tbl.id].hide).length} baris tersembunyi</button>}
-                <button className="btn sm" onClick={() => setPt(tbl.id, (c) => ({ ...c, extra: [...(c.extra || []), { n: '', min: '', sat: '', dis: '', pot: '', ambil: '' }] }))}>+ tambah baris</button>
+                {(() => { const nh = Object.keys((own ? ptd[tbl.id]?.hide : tpl[tbl.id]?.hide) || {}).length; return nh > 0 ? <button className="btn sm" onClick={() => (own ? setPt(tbl.id, (c) => ({ ...c, hide: {} })) : setTpl(tbl.id, (t) => ({ ...t, hide: {} })))}>Tampilkan {nh} baris tersembunyi</button> : null; })()}
+                <button className="btn sm" onClick={() => (own ? setPt(tbl.id, (c) => ({ ...c, extra: [...(c.extra || []), { n: '', min: '', sat: '', dis: '', pot: '', ambil: '' }] })) : setTpl(tbl.id, (t) => ({ ...t, extra: [...(t.extra || []), { id: 'e' + Math.random().toString(36).slice(2, 8), n: '', min: '', sat: '', dis: '' }] })))}>+ tambah baris</button>
+                <span className="mut" style={{ fontSize: 11 }}>{own ? 'Perubahan baris hanya untuk toko ini.' : 'Perubahan baris berlaku untuk semua toko.'}</span>
               </div>
             </div>
           ))}
@@ -420,15 +428,43 @@ export default function ItgV2({ demo, depot = '', team = '' }) {
   const nEdit = Object.keys(edits).length;
   const showOf = (r) => ({ off: true, hist: true, rec: true, on: true, kes: true, wajib: true, sig: true, ...(settings.show || {}), ...(r.e.show || {}), cols: { ...((settings.show || {}).cols || {}), ...((r.e.show || {}).cols || {}) } });
   const setGlobalShow = (sh) => setS({ show: { ...sh } });
+  const setTplFn = (tid, fn) => setSettings((o) => ({ ...o, ptTpl: { ...(o.ptTpl || {}), [tid]: fn({ ...((o.ptTpl || {})[tid] || {}) }) } }));
   const setGShow = (fn) => setSettings((o) => ({ ...o, show: fn({ ...(o.show || {}) }) }));
-  // jadikan pengaturan toko ini pengaturan umum, dan hapus pengaturan khusus di semua toko
-  const adoptAll = (sh, basis, pct, minPct, wajib) => {
-    setSettings((o) => ({ ...o, show: { ...sh }, basis, pct, minPct, wajib }));
+  // jadikan pengaturan dan isi tabel program toko ini sebagai pengaturan umum, dan hapus pengaturan khusus di semua toko (benefit dan pengambilan tetap per toko)
+  const adoptAll = ({ sh, basis, pct, minPct, wajib, storeId, tabs }) => {
+    const uid = () => 'e' + Math.random().toString(36).slice(2, 8);
+    const keyOf = (gen, k) => { const g = gen.find((x) => x.key === k || x.lkey === k); return g ? g.key : k; };
+    const addPerStore = {};
+    // template baru dihitung langsung dari pengaturan saat ini (bukan di dalam updater) supaya benefit baris tambahan toko ini terbawa
+    const nt = { ...(settings.ptTpl || {}) };
+    for (const { tid, gen, st } of tabs) {
+      const t = { ...(nt[tid] || {}) };
+      const hide = { ...(t.hide || {}) }; for (const k of Object.keys(st.hide || {})) hide[keyOf(gen, k)] = 1;
+      const ov = { ...(t.ov || {}) };
+      for (const [k, v] of Object.entries(st.ov || {})) { const tx = {}; for (const f of TEXT_FIELDS) if (f in v) tx[f] = v[f]; if (Object.keys(tx).length) { const kk = keyOf(gen, k); ov[kk] = { ...(ov[kk] || {}), ...tx }; } }
+      const extra = [...(t.extra || [])];
+      for (const x of st.extra || []) { const id = uid(); extra.push({ id, n: x.n || '', min: x.min || '', sat: x.sat || '', dis: x.dis || '' }); (addPerStore[tid] ||= {})['x:' + id] = { pot: x.pot ?? '', ambil: x.ambil ?? '' }; }
+      nt[tid] = { ...t, hide, ov, extra };
+    }
+    setSettings((o) => ({ ...o, show: { ...sh }, basis, pct, minPct, wajib, ptTpl: nt }));
     setEdits((o) => {
       const n = {};
       for (const [id, e] of Object.entries(o)) {
         const c = { ...e }; delete c.show; delete c.basis; delete c.pct; delete c.minPct;
-        if (c.contract) { const ct = { ...c.contract }; delete ct.wajib; if (Object.keys(ct).length) c.contract = ct; else delete c.contract; }
+        if (c.contract) {
+          const ct = { ...c.contract }; delete ct.wajib;
+          if (ct.pt) {
+            const pt2 = {};
+            for (const [tid, t] of Object.entries(ct.pt)) {
+              const ov = {};
+              for (const [k, v] of Object.entries(t.ov || {})) { const keep = {}; for (const [f, val] of Object.entries(v)) if (!TEXT_FIELDS.includes(f)) keep[f] = val; if (Object.keys(keep).length) ov[k] = keep; }
+              if (id === storeId) for (const [k, v] of Object.entries(addPerStore[tid] || {})) { const keep = {}; if (v.pot !== '' && v.pot != null) keep.pot = v.pot; if (v.ambil !== '' && v.ambil != null) keep.ambil = v.ambil; if (Object.keys(keep).length) ov[k] = keep; }
+              if (Object.keys(ov).length) pt2[tid] = { ov };
+            }
+            if (Object.keys(pt2).length) ct.pt = pt2; else delete ct.pt;
+          }
+          if (Object.keys(ct).length) c.contract = ct; else delete c.contract;
+        }
         if (Object.keys(c).length) n[id] = c;
       }
       return n;
@@ -440,7 +476,7 @@ export default function ItgV2({ demo, depot = '', team = '' }) {
     setPdfBusy('Menyusun PDF...');
     try {
       const { makeItgContractPdf } = await import('../lib/contractPdf2.js');
-      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r), pt: ptFor(r).map((x) => ({ tbl: x.tbl, rows: effectiveRows(x.gen, r.e.contract?.pt?.[x.tbl.id]) })), wajib: r.e.contract?.wajib ?? settings.wajib ?? '' })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
+      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r), pt: ptFor(r).map((x) => ({ tbl: x.tbl, rows: effectiveRows(x.gen, r.e.contract?.pt?.[x.tbl.id], (settings.ptTpl || {})[x.tbl.id]) })), wajib: r.e.contract?.wajib ?? settings.wajib ?? '' })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
     } catch (e) { window.alert('Gagal membuat PDF: ' + (e?.message || e)); }
     setPdfBusy('');
   };
@@ -560,7 +596,7 @@ export default function ItgV2({ demo, depot = '', team = '' }) {
             </table></div>
             <div className="mut" style={{ padding: '6px 12px', fontSize: 11.5 }}>Klik angka untuk mengubah (oranye = diubah, ↺ = kembali ke suggest). Klik “Kontrak ›” (atau barisnya) untuk melihat dan mengedit kontrak toko; tab “Kontrak” menampilkan satu toko penuh dengan tombol sebelumnya / berikutnya. Warna persen: hijau = sesuai atau di atas laju timegone, kuning = sampai 70% dari laju, merah = di bawahnya.</div>
           </div>
-          {selRow && <div className="pw"><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} pt={ptFor(selRow)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
+          {selRow && <div className="pw"><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} tpl={settings.ptTpl || {}} setTpl={setTplFn} pt={ptFor(selRow)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
         </div>
       )}
 
@@ -577,7 +613,7 @@ export default function ItgV2({ demo, depot = '', team = '' }) {
               <button className="btn sm" disabled={ci < 0 || ci >= rows.length - 1} onClick={() => setSel(rows[ci + 1].id)}>Berikutnya ›</button>
               <span className="mut">{ci + 1} dari {rows.length} toko (mengikuti filter di atas: salesman, hari kunjungan, tanggal). Semua angka di kertas bisa diklik dan diedit.</span>
             </div>
-            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} pt={ptFor(cr)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
+            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} tpl={settings.ptTpl || {}} setTpl={setTplFn} pt={ptFor(cr)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
           </div>
         );
       })()}
