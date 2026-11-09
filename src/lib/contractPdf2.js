@@ -44,7 +44,7 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
   const acc = depot && /kapuk/i.test(depot) ? [79, 148, 166] : [201, 104, 59];
   const mm = months.map((m) => m.label).join(' - ');
   const base = { margin: { left: 12, right: 12 }, styles: { fontSize: 8.5, cellPadding: 1.7, lineColor: [200, 205, 215], lineWidth: 0.2, overflow: 'linebreak' }, headStyles: { fillColor: acc, textColor: 255, halign: 'center' }, theme: 'grid' };
-  items.forEach(({ r, show, pt }, idx) => {
+  items.forEach(({ r, show, pt, wajib }, idx) => {
     if (idx) doc.addPage();
     const v = view(r, show, tg, pt);
     const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
@@ -119,7 +119,7 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
       doc.setFillColor(...acc); doc.roundedRect(12, cur, W - 24, 8, 2, 2, 'F'); doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
       doc.text('Estimasi total benefit program', 16, cur + 5.4); doc.text('Rp ' + RP(v.totBen), W - 16, cur + 5.4, { align: 'right' }); doc.setTextColor(30, 40, 50); cur += 12;
     }
-    if (show.wajib && v.e.contract?.wajib) { heading('ITEM UNGGULAN WAJIB'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(clean(v.e.contract.wajib), W / 2, cur + 2, { align: 'center', maxWidth: W - 30 }); cur += 8; }
+    if (show.wajib && wajib) { heading('ITEM UNGGULAN WAJIB'); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(clean(wajib), W / 2, cur + 2, { align: 'center', maxWidth: W - 30 }); cur += 8; }
     if (show.sig) {
       let top = Math.max(cur + 6, H - 40);
       if (top > H - 28) { doc.addPage(); top = 24; }

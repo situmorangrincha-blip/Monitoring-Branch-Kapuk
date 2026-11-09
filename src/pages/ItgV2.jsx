@@ -114,7 +114,7 @@ const DEFAULT_TABLES = [{ id: 't1', title: 'Program ON faktur', jenis: 'ON', tie
 const HSRC = [['l3m', 'Rata-rata 3 bulan'], ['lm', 'Bulan lalu'], ['act', 'Bulan data']];
 const numOnly = (t) => { const x = String(t ?? '').trim(); if (!x || !/^[\d.,\s]+$/.test(x)) return 0; const n = parseFloat(x.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf, pt = [], tables = [], setTables, progList = [], progCount = {}, hasCatalog = false, wilayah = [] }) {
+function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf, gShow, adoptAll, gWajib, setGWajib, setGlobal, pt = [], tables = [], setTables, progList = [], progCount = {}, hasCatalog = false, wilayah = [] }) {
   const e = r.e;
   const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
   const ov = e.contract?.ov || {};
@@ -153,7 +153,18 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const totBenAuto = offTot + recBen + (show.on ? onPot : 0);
   const totBen = OV('tot', totBenAuto);
   const nShown = SHOW_LABEL.filter(([k]) => show[k]).length;
-  const toggleCol = (g, k) => patch((c) => ({ ...c, show: { ...(c.show || {}), cols: { ...((c.show || {}).cols || {}), [g + '.' + k]: !cv(g, k) } } }));
+  // lingkup pengaturan: umum (semua toko) kecuali toko ini punya pengaturan khusus
+  const own = !!(e.show || e.basis != null || e.pct != null || e.minPct != null);
+  const setShow = (fn) => (own ? patch((c) => ({ ...c, show: fn({ ...(c.show || {}) }) })) : gShow(fn));
+  const dropT = (c) => { const n = { ...c }; delete n.tUsed; return n; };
+  const setBasis = (v) => (own ? patch((c) => ({ ...dropT(c), basis: v })) : (setGlobal({ basis: v }), patch(dropT)));
+  const setPctUse = (v) => (own ? patch((c) => ({ ...dropT(c), pct: v })) : (setGlobal({ pct: v }), patch(dropT)));
+  const setMinPct = (v) => (own ? patch((c) => ({ ...c, minPct: v })) : setGlobal({ minPct: v }));
+  const wajibV = e.contract?.wajib ?? gWajib ?? '';
+  const setWajib = (x) => (own ? patch((c) => ({ ...c, contract: { ...(c.contract || {}), wajib: x ?? '' } })) : setGWajib(x ?? ''));
+  const makeOwn = () => patch((c) => ({ ...c, show: { ...show, cols: { ...(show.cols || {}) } }, basis: r.basis, pct: r.pctUse, minPct: r.minPct }));
+  const backToGeneral = () => patch((c) => { const n = { ...c }; delete n.show; delete n.basis; delete n.pct; delete n.minPct; if (n.contract) { const ct = { ...n.contract }; delete ct.wajib; if (Object.keys(ct).length) n.contract = ct; else delete n.contract; } return n; });
+  const toggleCol = (g, k) => setShow((sh) => ({ ...sh, cols: { ...(sh.cols || {}), [g + '.' + k]: !cv(g, k) } }));
   const hsrc = show.hsrc || 'l3m';
   const hmode = show.hmode || 'bulan';
   const hf = hmode === 'visit' ? r.visits : 1;
@@ -165,21 +176,33 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   return (
     <>
       <div className="card cset">
+        <div className="ctl scopebar" style={{ margin: '0 0 8px' }}>
+          {own ? (<>
+            <span className="tag y">Khusus toko ini</span>
+            <span className="mut" style={{ fontSize: 11.5 }}>Pengaturan toko ini berbeda dari pengaturan umum.</span>
+            <button className="btn sm" onClick={backToGeneral}>Kembali ke pengaturan umum</button>
+            <button className="btn sm pri" onClick={() => adoptAll(show, r.basis, r.pctUse, r.minPct, wajibV)} title="Pengaturan toko ini menjadi pengaturan umum, pengaturan khusus di toko lain dihapus">Jadikan semua toko seperti ini</button>
+          </>) : (<>
+            <span className="tag g">Pengaturan umum</span>
+            <span className="mut" style={{ fontSize: 11.5 }}>Perubahan di sini otomatis berlaku untuk semua toko.</span>
+            <button className="btn sm" onClick={makeOwn} title="Toko ini boleh berbeda dari pengaturan umum">Khusus toko ini</button>
+          </>)}
+        </div>
         <div className="ctl" style={{ margin: 0 }}>
           <span className="lbl">Tampilkan di kontrak</span>
-          <span className="chips">{SHOW_LABEL.map(([k, l]) => <label key={k} className={'tog' + (show[k] ? ' on' : '')}><input type="checkbox" checked={!!show[k]} onChange={() => patch((c) => { const sh = { ...(c.show || {}) }; sh[k] = !show[k]; return { ...c, show: sh }; })} />{l}</label>)}</span>
+          <span className="chips">{SHOW_LABEL.map(([k, l]) => <label key={k} className={'tog' + (show[k] ? ' on' : '')}><input type="checkbox" checked={!!show[k]} onChange={() => setShow((sh) => ({ ...sh, [k]: !show[k] }))} />{l}</label>)}</span>
         </div>
         <div className="ctl" style={{ margin: '6px 0 0' }}>
           <span className="lbl">Histori</span>
-          <div className="seg">{[['bulan', 'Per bulan'], ['visit', 'Per kunjungan']].map(([v, l]) => <button key={v} className={hmode === v ? 'on' : ''} onClick={() => patch((c) => ({ ...c, show: { ...(c.show || {}), hmode: v } }))}>{l}</button>)}</div>
-          <div className="seg">{HSRC.map(([v, l]) => <button key={v} className={hsrc === v ? 'on' : ''} onClick={() => patch((c) => ({ ...c, show: { ...(c.show || {}), hsrc: v } }))}>{l}</button>)}</div>
+          <div className="seg">{[['bulan', 'Per bulan'], ['visit', 'Per kunjungan']].map(([v, l]) => <button key={v} className={hmode === v ? 'on' : ''} onClick={() => setShow((sh) => ({ ...sh, hmode: v }))}>{l}</button>)}</div>
+          <div className="seg">{HSRC.map(([v, l]) => <button key={v} className={hsrc === v ? 'on' : ''} onClick={() => setShow((sh) => ({ ...sh, hsrc: v }))}>{l}</button>)}</div>
         </div>
         <div className="ctl" style={{ margin: '6px 0 0' }}>
           <span className="lbl">Target kontrak</span>
-          <div className="seg">{[['visit', 'Per kunjungan'], ['bulan', 'Sebulan'], ['dua', 'Dua bulan']].map(([v, l]) => <button key={v} className={r.basis === v ? 'on' : ''} onClick={() => patch((c) => { const n = { ...c, basis: v }; delete n.tUsed; return n; })}>{l}</button>)}</div>
+          <div className="seg">{[['visit', 'Per kunjungan'], ['bulan', 'Sebulan'], ['dua', 'Dua bulan']].map(([v, l]) => <button key={v} className={r.basis === v ? 'on' : ''} onClick={() => setBasis(v)}>{l}</button>)}</div>
           <span className="lbl">Basis</span>
-          <div className="seg">{[100, 90, 80, 70].map((v) => <button key={v} className={r.pctUse === v ? 'on' : ''} onClick={() => patch((c) => { const n = { ...c, pct: v }; delete n.tUsed; return n; })}>{v}%</button>)}</div>
-          <label className="mut" style={{ fontWeight: 600 }}>Minimal <input type="number" style={{ width: 54 }} defaultValue={r.minPct} key={'mp' + r.minPct} onBlur={(ev) => { const v = parseFloat(ev.target.value); if (Number.isFinite(v) && v > 0) patch((c) => ({ ...c, minPct: v })); }} />%</label>
+          <div className="seg">{[100, 90, 80, 70].map((v) => <button key={v} className={r.pctUse === v ? 'on' : ''} onClick={() => setPctUse(v)}>{v}%</button>)}</div>
+          <label className="mut" style={{ fontWeight: 600 }}>Minimal <input type="number" style={{ width: 54 }} defaultValue={r.minPct} key={'mp' + r.minPct} onBlur={(ev) => { const v = parseFloat(ev.target.value); if (Number.isFinite(v) && v > 0) setMinPct(v); }} />%</label>
           <label className="mut" style={{ fontWeight: 600 }}>Kunjungan <input type="number" style={{ width: 50 }} defaultValue={r.visits} key={'vv' + r.visits} onBlur={(ev) => { const v = parseInt(ev.target.value, 10); if (v > 0) patch((c) => ({ ...c, visits: v })); }} />×</label>
         </div>
         {Object.keys(COLS).map((g) => (
@@ -199,10 +222,8 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
           {tables.map((t, ti) => <ProgTable key={t.id} t={t} progList={progList} progCount={progCount} wilayah={wilayah} onChange={(p) => setTables((a) => a.map((x) => (x.id === t.id ? { ...x, ...p } : x)))} onDelete={() => window.confirm(`Hapus tabel "${t.title}"?`) && setTables((a) => a.filter((x) => x.id !== t.id))} onMove={(d) => setTables((a) => { const j = ti + d; if (j < 0 || j >= a.length) return a; const n = [...a]; [n[ti], n[j]] = [n[j], n[ti]]; return n; })} canUp={ti > 0} canDown={ti < tables.length - 1} />)}
         </div>
         <div className="ctl" style={{ margin: '8px 0 0' }}>
-          <button className="btn sm" onClick={() => setGlobalShow(show)} title="Jadikan pengaturan tampilan ini sebagai bawaan untuk semua toko">Jadikan bawaan semua toko</button>
-          <button className="btn sm" onClick={() => applyShow(show)} title="Terapkan pengaturan tampilan ini ke toko yang sesuai filter">Terapkan ke {nFilter} toko (filter)</button>
           {onPdf && <button className="btn sm coin" onClick={onPdf}>Unduh PDF toko ini</button>}
-          <span className="mut" style={{ fontSize: 11 }}>Pengaturan ini tidak ikut tercetak di kertas. Isi tabelnya tetap bisa diklik dan diedit di kertas.</span>
+          <span className="mut" style={{ fontSize: 11 }}>Pengaturan ini tidak ikut tercetak di kertas. Angka di kertas tetap bisa diklik dan diedit per toko.</span>
         </div>
       </div>
 
@@ -336,7 +357,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
           {nShown > 0 && (show.off || show.rec || show.on) && (
             <div className="totbar"><span>Estimasi total benefit program</span><b><Ed v={totBen} auto={totBenAuto} unit="Rp" set={setOv('tot')} /></b></div>
           )}
-          {show.wajib && (<><h4>Item unggulan wajib</h4><div style={{ textAlign: 'center' }}><Ed text v={e.contract?.wajib || ''} auto="" set={(x) => patch((c) => ({ ...c, contract: { ...(c.contract || {}), wajib: x ?? '' } }))} /></div></>)}
+          {show.wajib && (<><h4>Item unggulan wajib</h4><div style={{ textAlign: 'center' }}><Ed text v={wajibV} auto="" set={setWajib} /></div></>)}
           {show.sig && <div className="sig"><div>Salesman</div><div>SAC</div><div>Branch Head</div><div>{r.name.slice(0, 18)}</div></div>}
           {r.edited && <div style={{ textAlign: 'center', marginTop: 8 }}><button className="btn sm" onClick={() => patch(() => ({}))}>Kembalikan toko ini ke suggest</button></div>}
         </div>
@@ -345,11 +366,20 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   );
 }
 
-export default function ItgV2({ demo }) {
+export default function ItgV2({ demo, depot = '', team = '' }) {
+  const SK = `${depot}_${team}`;
+  // pengaturan dan edit disimpan per depo x tim; data lama (tanpa depo/tim) dipindahkan otomatis ke depo/tim pertama yang dibuka
+  const loadScoped = (base, def) => {
+    const v = lsGet(`${base}_${SK}`, undefined);
+    if (v !== undefined) return v;
+    const old = lsGet(base, undefined);
+    if (old !== undefined && !lsGet(base + '_migrated', false)) { lsSet(base + '_migrated', SK); lsSet(`${base}_${SK}`, old); return old; }
+    return def;
+  };
   const [parsed, setParsed] = useState(demo.parsed);
   const [stores, setStores] = useState(() => new Map(demo.stores.map((s) => [s.id, s])));
-  const [edits, setEdits] = useState(() => lsGet('itgv2_edits', {}));
-  const [settings, setSettings] = useState(() => lsGet('itgv2_settings', { basis: 'visit', pct: 100, classPct: { ...DEFAULT_PCT }, unit: 'jt', show: {} }));
+  const [edits, setEdits] = useState(() => loadScoped('itgv2_edits', {}));
+  const [settings, setSettings] = useState(() => loadScoped('itgv2_settings', { basis: 'visit', pct: 100, classPct: { ...DEFAULT_PCT }, unit: 'jt', show: {} }));
   const [fs, setFs] = useState('ALL'), [fc, setFc] = useState('ALL'), [ft, setFt] = useState('ALL'), [fd, setFd] = useState('ALL'), [fdt, setFdt] = useState('');
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState('toko');
@@ -357,8 +387,8 @@ export default function ItgV2({ demo }) {
   const time = useMemo(() => nowTime(parsed.months), [parsed]);
   const [date, setDate] = useState(() => `${time.y}-${pad(time.m)}-${pad(Math.min(time.d, time.last))}`);
   const fileRef = useRef(null);
-  useEffect(() => lsSet('itgv2_edits', edits), [edits]);
-  useEffect(() => lsSet('itgv2_settings', settings), [settings]);
+  useEffect(() => lsSet('itgv2_edits_' + SK, edits), [edits]); // eslint-disable-line
+  useEffect(() => lsSet('itgv2_settings_' + SK, settings), [settings]); // eslint-disable-line
   const unit = settings.unit || 'jt';
   const tc = (k) => settings.tcols?.[k] !== false;
   const C = useMemo(() => computeItg2(parsed, stores, time, edits, settings), [parsed, stores, time, edits, settings]);
@@ -390,13 +420,27 @@ export default function ItgV2({ demo }) {
   const nEdit = Object.keys(edits).length;
   const showOf = (r) => ({ off: true, hist: true, rec: true, on: true, kes: true, wajib: true, sig: true, ...(settings.show || {}), ...(r.e.show || {}), cols: { ...((settings.show || {}).cols || {}), ...((r.e.show || {}).cols || {}) } });
   const setGlobalShow = (sh) => setS({ show: { ...sh } });
+  const setGShow = (fn) => setSettings((o) => ({ ...o, show: fn({ ...(o.show || {}) }) }));
+  // jadikan pengaturan toko ini pengaturan umum, dan hapus pengaturan khusus di semua toko
+  const adoptAll = (sh, basis, pct, minPct, wajib) => {
+    setSettings((o) => ({ ...o, show: { ...sh }, basis, pct, minPct, wajib }));
+    setEdits((o) => {
+      const n = {};
+      for (const [id, e] of Object.entries(o)) {
+        const c = { ...e }; delete c.show; delete c.basis; delete c.pct; delete c.minPct;
+        if (c.contract) { const ct = { ...c.contract }; delete ct.wajib; if (Object.keys(ct).length) c.contract = ct; else delete c.contract; }
+        if (Object.keys(c).length) n[id] = c;
+      }
+      return n;
+    });
+  };
   const applyShow = (sh) => setEdits((o) => { const n = { ...o }; for (const r of rows) { const cur = { ...(n[r.id] || {}) }; cur.show = { ...sh }; n[r.id] = cur; } return n; });
   const [pdfBusy, setPdfBusy] = useState('');
   const downloadPdf = async (list, name) => {
     setPdfBusy('Menyusun PDF...');
     try {
       const { makeItgContractPdf } = await import('../lib/contractPdf2.js');
-      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r), pt: ptFor(r).map((x) => ({ tbl: x.tbl, rows: effectiveRows(x.gen, r.e.contract?.pt?.[x.tbl.id]) })) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
+      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r), pt: ptFor(r).map((x) => ({ tbl: x.tbl, rows: effectiveRows(x.gen, r.e.contract?.pt?.[x.tbl.id]) })), wajib: r.e.contract?.wajib ?? settings.wajib ?? '' })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
     } catch (e) { window.alert('Gagal membuat PDF: ' + (e?.message || e)); }
     setPdfBusy('');
   };
@@ -516,7 +560,7 @@ export default function ItgV2({ demo }) {
             </table></div>
             <div className="mut" style={{ padding: '6px 12px', fontSize: 11.5 }}>Klik angka untuk mengubah (oranye = diubah, ↺ = kembali ke suggest). Klik “Kontrak ›” (atau barisnya) untuk melihat dan mengedit kontrak toko; tab “Kontrak” menampilkan satu toko penuh dengan tombol sebelumnya / berikutnya. Warna persen: hijau = sesuai atau di atas laju timegone, kuning = sampai 70% dari laju, merah = di bawahnya.</div>
           </div>
-          {selRow && <div className="pw"><Contract pt={ptFor(selRow)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
+          {selRow && <div className="pw"><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} pt={ptFor(selRow)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
         </div>
       )}
 
@@ -533,7 +577,7 @@ export default function ItgV2({ demo }) {
               <button className="btn sm" disabled={ci < 0 || ci >= rows.length - 1} onClick={() => setSel(rows[ci + 1].id)}>Berikutnya ›</button>
               <span className="mut">{ci + 1} dari {rows.length} toko (mengikuti filter di atas: salesman, hari kunjungan, tanggal). Semua angka di kertas bisa diklik dan diedit.</span>
             </div>
-            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract pt={ptFor(cr)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
+            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract gShow={setGShow} adoptAll={adoptAll} gWajib={settings.wajib} setGWajib={(x) => setS({ wajib: x })} setGlobal={setS} pt={ptFor(cr)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
           </div>
         );
       })()}

@@ -75,3 +75,10 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Setiap tabel program punya baris Total Benefit** (Total Benefit ON Faktur / Total Benefit OFF Faktur).
 - **Rincian total di bawah Kesimpulan:** Total Benefit OFF Faktur (reward ITG + tabel OFF), Total Benefit ON Faktur, dan **Estimasi total benefit program = OFF + ON**. Semuanya ikut ke PDF.
 - Opsi per tabel **"Hanya yang ada benefit Rp"** menyembunyikan program persen atau tanpa nilai Rp, supaya tabel ON faktur berisi program yang benefit-nya bisa dijumlahkan seperti di kontrak lama.
+
+## Update 8 (9 Nov 2026, malam): pengaturan kontrak ITG berlaku untuk semua toko
+- **Pengaturan kontrak otomatis berlaku untuk semua toko.** Tabel yang tampil, kolom tiap tabel, sumber histori (per bulan / per kunjungan, rata-rata 3 bulan / bulan lalu / bulan data), dasar target kontrak, persen basis, minimal %, dan item unggulan wajib: ubah di satu toko, toko lain langsung ikut. Yang tetap per toko: angka yang diketik di kertas, baris program yang disembunyikan atau ditambah, dan jumlah kunjungan.
+- **Bar di atas kartu pengaturan** menunjukkan "Pengaturan umum" atau "Khusus toko ini". Tombol **Khusus toko ini** membuat toko boleh berbeda; **Kembali ke pengaturan umum** menghapus pengaturan khusus itu; **Jadikan semua toko seperti ini** menjadikan pengaturan toko yang sedang dibuka sebagai pengaturan umum dan menghapus pengaturan khusus di semua toko. Toko yang dulu sudah diubah satu per satu otomatis terbaca sebagai "Khusus toko ini".
+- Tombol lama "Jadikan bawaan semua toko" dan "Terapkan ke N toko (filter)" diganti oleh logika di atas.
+- **Penyimpanan di browser kini per depo x tim.** Pengaturan dan edit lama (yang belum dibedakan) dipindahkan otomatis ke depo dan tim pertama yang dibuka setelah update; data lama tidak dihapus dari browser.
+- Item unggulan wajib ikut ke PDF sebagai pengaturan umum.
