@@ -6,15 +6,15 @@ const clean = (s) => String(s ?? '').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
 const idf = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d }) : '-');
 const numOnly = (t) => { const x = String(t ?? '').trim(); if (!x || !/^[\d.,\s]+$/.test(x)) return 0; const n = parseFloat(x.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function view(r, show, tg) {
+function view(r, show, tg, pt) {
   const e = r.e || {};
   const ov = e.contract?.ov || {};
   const OV = (k, a) => ov[k] ?? a;
-  const lines = e.contract?.lines || [], on = e.contract?.on || [];
+  const lines = e.contract?.lines || [], on = (pt || []).flatMap((x) => x.rows || []);
   const nilai = (l) => l.nv ?? (l.k || 0) * (l.h || 0);
   const potL = (l) => l.pv ?? Math.round((nilai(l) * (l.d || 0)) / 100);
   const val = OV('val', lines.reduce((a, l) => a + nilai(l), 0)), pot = OV('pot', lines.reduce((a, l) => a + potL(l), 0));
-  const onPot = OV('onpot', on.reduce((a, x) => a + (x.pot || 0), 0));
+  const onPot = OV('onpot', on.reduce((a, x) => a + numOnly(x.pot), 0));
   const bs = r.basis;
   const mAct = r.mi === 0 ? r.a1 : r.a2;
   const doneV = Math.max(1, Math.round(r.visits * (tg || 1)));
@@ -40,9 +40,9 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
   const acc = depot && /kapuk/i.test(depot) ? [79, 148, 166] : [201, 104, 59];
   const mm = months.map((m) => m.label).join(' - ');
   const base = { margin: { left: 12, right: 12 }, styles: { fontSize: 8.5, cellPadding: 1.7, lineColor: [200, 205, 215], lineWidth: 0.2, overflow: 'linebreak' }, headStyles: { fillColor: acc, textColor: 255, halign: 'center' }, theme: 'grid' };
-  items.forEach(({ r, show }, idx) => {
+  items.forEach(({ r, show, pt }, idx) => {
     if (idx) doc.addPage();
-    const v = view(r, show, tg);
+    const v = view(r, show, tg, pt);
     const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
     doc.setFillColor(...acc); doc.rect(0, 0, W, 22, 'F');
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
@@ -86,13 +86,16 @@ export function makeItgContractPdf(items, { unit = 'jt', months = [], tg = 1, de
       table({ head: [use.map((c) => c[1])], body, columnStyles: { 0: { halign: 'left' } }, bodyStyles: { halign: 'right' } });
     }
     if (show.on) {
-      heading('PROGRAM ON FAKTUR');
-      const cols = [['n', 'Program'], ['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon'], ['pot', 'Potongan'], ['ambil', 'Pengambilan']];
-      const use = cols.filter((c) => c[0] === 'n' || cv('on', c[0] === 'n' ? 'min' : c[0]));
-      const cell = (x, k) => (k === 'n' ? clean(x.n) : k === 'min' ? RP(x.min) : k === 'pot' ? RP(x.pot) : clean(x[k] ?? ''));
-      const body = v.on.map((x) => use.map((c) => cell(x, c[0])));
-      body.push(use.map((c) => (c[0] === 'n' ? 'Total benefit ON faktur' : c[0] === 'pot' ? RP(v.onPot) : '')));
-      table({ head: [use.map((c) => c[1])], body, columnStyles: { 0: { halign: 'left' } }, bodyStyles: { halign: 'right', minCellHeight: 7 } });
+      for (const t of pt || []) {
+        heading(clean(t.tbl.title).toUpperCase());
+        const cols = [['n', 'Program'], ['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon / reward'], ['pot', 'Potongan'], ['ambil', 'Pengambilan']];
+        const use = cols.filter((c) => c[0] === 'n' || cv('on', c[0]));
+        const cell = (x, k) => (k === 'pot' ? (numOnly(x.pot) ? RP(numOnly(x.pot)) : '') : clean(x[k] ?? ''));
+        const body = t.rows.map((x) => use.map((c) => cell(x, c[0])));
+        if (!body.length) body.push(use.map((c, i) => (i === 0 ? 'Tidak ada program terpilih yang berlaku untuk toko ini' : '')));
+        table({ head: [use.map((c) => c[1])], body, columnStyles: { 0: { halign: 'left' } }, bodyStyles: { halign: 'right', minCellHeight: 7 } });
+      }
+      if ((pt || []).length && cv('on', 'pot')) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Total potongan program: Rp ' + RP(v.onPot), W - 14, cur + 1, { align: 'right' }); cur += 5; }
     }
     if (show.kes) {
       heading('KESIMPULAN PENGAMBILAN KUNJUNGAN');

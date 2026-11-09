@@ -62,3 +62,10 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
   - Angka bulanan disimpan tiap upload (slot riwayat) supaya quartal bisa dijumlah walau file hanya memuat bulan berjalan dan bulan lalu.
   - Bulan yang tidak ada di file target (mis. Oktober) dianggap sama dengan bulan pertama (bertanda ~, bisa diedit atau dikosongkan).
   - Bisa edit target, actual, dan reward per outlet; filter salesman, hari JKS, status; cetak A4 portrait / landscape.
+
+## Update 6 (9 Nov 2026, malam): tabel program di kontrak ITG dari katalog
+- **Tabel program di kontrak ITG terisi dari Excel program** (section Program, tanpa upload ulang). Di pengaturan di atas kertas ada **Tabel program dari katalog**: tiap tabel punya judul, jenis (ON faktur / OFF faktur / Semua), tingkat (semua tingkat strata atau tertinggi saja), wilayah strata, dan tombol **Pilih program** berisi daftar yang bisa dicari (kode, nama, brand) dengan filter ON / OFF / Lainnya, jumlah toko ITG yang cocok, "Pilih hasil pencarian", dan "Kosongkan".
+- **Bisa lebih dari satu tabel** (mis. satu ON faktur dan satu OFF faktur): tombol + Tambah tabel / + OFF faktur, urutan bisa digeser, tiap tabel bisa disembunyikan.
+- **Yang dipilih adalah daftar program untuk semua toko; di kertas hanya muncul program yang cocok dengan toko itu** (channel, ukuran, penanda ITG, dan daftar peserta, sama seperti section Program). Skema strata diskon dari sheet STRATA ikut bisa dipilih, satu baris per tingkat.
+- **Di kertas** tiap baris bisa diedit, disembunyikan (x), dan ditambah manual (+ tambah baris). Kolom Pengambilan tetap kosong untuk diisi; Potongan dan Pengambilan berupa angka ikut ke Total potongan dan Kesimpulan. Semuanya ikut ke PDF.
+- Isian manual lama di tabel ON faktur (versi sebelumnya) tidak dipindahkan; isi ulang lewat + tambah baris kalau perlu.

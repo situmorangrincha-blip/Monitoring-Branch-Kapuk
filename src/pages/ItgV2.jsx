@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { DEFAULT_PCT, MON_NAME, computeItg2, parseItg2 } from '../lib/itg2.js';
 import { parseRoute, visitDays } from '../lib/calc.js';
+import { catalogPrograms, effectiveRows, rowsForTable, wilayahOf } from '../lib/itgProg.js';
+import { makeCtx, programsForStore } from '../lib/progcat.js';
 import './itgv2.css';
 
 const rpf = (n) => Math.round(n || 0).toLocaleString('id-ID');
@@ -47,18 +49,71 @@ function Ed({ v, auto, set, unit, dec = 1, int = false, text = false, pct = fals
   );
 }
 
-const SHOW_LABEL = [['off', 'OFF faktur'], ['hist', 'Histori pengambilan'], ['rec', 'Rekomendasi order'], ['on', 'ON faktur'], ['kes', 'Kesimpulan pengambilan'], ['wajib', 'Item wajib'], ['sig', 'Tanda tangan']];
+
+// pengaturan satu tabel program: judul, jenis, tingkat strata, dan daftar program yang bisa dicari lalu dipilih
+function ProgTable({ t, progList, progCount, wilayah = [], onChange, onDelete, onMove, canUp, canDown }) {
+  const [q, setQ] = useState('');
+  const [jf, setJf] = useState('ALL');
+  const [open, setOpen] = useState(false);
+  const picks = new Set(t.picks || []);
+  const list = progList.filter((p) => (jf === 'ALL' || p.jenis === jf) && (!q.trim() || `${p.code} ${p.nama} ${p.brand}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const tog = (code) => onChange({ picks: picks.has(code) ? [...picks].filter((x) => x !== code) : [...picks, code] });
+  return (
+    <div className="ptb">
+      <div className="ctl" style={{ margin: 0 }}>
+        <input className="cell w" value={t.title} onChange={(e) => onChange({ title: e.target.value })} style={{ width: 190 }} aria-label="Judul tabel program" />
+        <div className="seg">{[['ON', 'ON faktur'], ['OFF', 'OFF faktur'], ['ALL', 'Semua']].map(([v, l]) => <button key={v} className={(t.jenis || 'ON') === v ? 'on' : ''} onClick={() => onChange({ jenis: v })}>{l}</button>)}</div>
+        <div className="seg" title="Program bertingkat (strata): tampilkan semua tingkat atau hanya yang tertinggi">{[['all', 'Semua tingkat'], ['top', 'Tertinggi'], ].map(([v, l]) => <button key={v} className={(t.tiers || 'all') === v ? 'on' : ''} onClick={() => onChange({ tiers: v })}>{l}</button>)}</div>
+        {wilayah.length > 0 && <select className="cell" value={t.wilayah || 'ALL'} onChange={(e) => onChange({ wilayah: e.target.value })} title="Wilayah untuk skema strata diskon"><option value="ALL">Strata: semua wilayah</option>{wilayah.map((w) => <option key={w} value={w}>Strata: {w}</option>)}</select>}
+        <label className="tog on" style={{ cursor: 'pointer' }}><input type="checkbox" checked={t.on !== false} onChange={() => onChange({ on: t.on === false })} />Tampil</label>
+        <span className="grow" />
+        <button className="btn sm" disabled={!canUp} onClick={() => onMove(-1)}>↑</button>
+        <button className="btn sm" disabled={!canDown} onClick={() => onMove(1)}>↓</button>
+        <button className="btn sm" onClick={onDelete}>Hapus</button>
+      </div>
+      <div className="ctl" style={{ margin: '4px 0 0' }}>
+        <button className={'btn sm' + (open ? ' on' : '')} onClick={() => setOpen(!open)}>{open ? 'Tutup daftar' : 'Pilih program'} ({picks.size} dipilih dari {progList.length})</button>
+        {picks.size > 0 && <span className="chips">{[...picks].slice(0, 6).map((c) => <span key={c} className="tog on" title={progList.find((x) => x.code === c)?.nama}>{c}<button className="rst" style={{ marginLeft: 4 }} onClick={() => tog(c)}>×</button></span>)}{picks.size > 6 && <span className="mut">+{picks.size - 6}</span>}</span>}
+      </div>
+      {open && (
+        <div className="ppick">
+          <div className="ctl" style={{ margin: 0 }}>
+            <input className="cell w" placeholder="cari kode, nama, atau brand program…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} autoFocus />
+            <div className="seg">{[['ALL', 'Semua'], ['ON', 'ON'], ['OFF', 'OFF'], ['LAIN', 'Lainnya']].map(([v, l]) => <button key={v} className={jf === v ? 'on' : ''} onClick={() => setJf(v)}>{l}</button>)}</div>
+            <button className="btn sm" onClick={() => onChange({ picks: [...new Set([...picks, ...list.map((p) => p.code)])] })}>Pilih hasil pencarian ({list.length})</button>
+            <button className="btn sm" onClick={() => onChange({ picks: [] })}>Kosongkan</button>
+          </div>
+          <div className="plist">
+            {list.map((p) => (
+              <label key={p.code} className={'prow' + (picks.has(p.code) ? ' on' : '')}>
+                <input type="checkbox" checked={picks.has(p.code)} onChange={() => tog(p.code)} />
+                <b>{p.code}</b><span className="pn">{p.nama}</span>
+                <span className={'tag ' + (p.jenis === 'ON' ? 'g' : p.jenis === 'OFF' ? 'b' : 'y')} title={p.kind}>{p.strata ? 'STRATA' : p.kind || p.jenis}</span>
+                <span className="mut">{p.brand}</span>
+                <span className="mut" style={{ marginLeft: 'auto' }}>{progCount[p.code] ?? 0} toko ITG</span>
+              </label>
+            ))}
+            {!list.length && <div className="mut" style={{ padding: 8 }}>Tidak ada program yang cocok.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SHOW_LABEL = [['off', 'OFF faktur'], ['hist', 'Histori pengambilan'], ['rec', 'Rekomendasi order'], ['on', 'Tabel program'], ['kes', 'Kesimpulan pengambilan'], ['wajib', 'Item wajib'], ['sig', 'Tanda tangan']];
 // kolom yang bisa ditampilkan atau disembunyikan per tabel di kertas
 const COLS = {
   off: [['target', 'Target'], ['actual', 'Actual'], ['pct', '%'], ['gap', 'Gap'], ['benefit', 'Benefit'], ['reward', 'Reward']],
   rec: [['karton', 'Karton'], ['harga', 'Harga/dus'], ['nilai', 'Nilai'], ['disk', 'Disk %'], ['pot', 'Potongan']],
   on: [['min', 'Min order'], ['sat', 'Satuan'], ['dis', 'Diskon'], ['pot', 'Potongan'], ['ambil', 'Pengambilan']],
 };
-const TITLE = { off: 'Kolom OFF faktur', rec: 'Kolom rekomendasi', on: 'Kolom ON faktur' };
+const TITLE = { off: 'Kolom OFF faktur', rec: 'Kolom rekomendasi', on: 'Kolom tabel program' };
+const DEFAULT_TABLES = [{ id: 't1', title: 'Program ON faktur', jenis: 'ON', tiers: 'all', picks: [], on: true }];
 const HSRC = [['l3m', 'Rata-rata 3 bulan'], ['lm', 'Bulan lalu'], ['act', 'Bulan data']];
 const numOnly = (t) => { const x = String(t ?? '').trim(); if (!x || !/^[\d.,\s]+$/.test(x)) return 0; const n = parseFloat(x.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
-function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf }) {
+function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyShow, nFilter, hm, tg = 1, onPdf, pt = [], tables = [], setTables, progList = [], progCount = {}, hasCatalog = false, wilayah = [] }) {
   const e = r.e;
   const cv = (g, k) => show.cols?.[g + '.' + k] !== false;
   const ov = e.contract?.ov || {};
@@ -66,14 +121,16 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const setOv = (k) => (x) => patch((c) => { const ct = { ...(c.contract || {}) }; const o = { ...(ct.ov || {}) }; if (x === undefined) delete o[k]; else o[k] = x; if (Object.keys(o).length) ct.ov = o; else delete ct.ov; return { ...c, contract: ct }; });
   const lines = e.contract?.lines || [];
   const setLines = (fn) => patch((c) => ({ ...c, contract: { ...(c.contract || {}), lines: fn([...lines]) } }));
-  const onRows = e.contract?.on || [];
-  const setOn = (fn) => patch((c) => ({ ...c, contract: { ...(c.contract || {}), on: fn([...onRows]) } }));
+  const ptd = e.contract?.pt || {};
+  const setPt = (tid, fn) => patch((c) => { const ct = { ...(c.contract || {}) }; const all = { ...(ct.pt || {}) }; all[tid] = fn({ ...(all[tid] || {}) }); ct.pt = all; return { ...c, contract: ct }; });
+  const ptRows = pt.map((x) => ({ ...x, rows: effectiveRows(x.gen, ptd[x.tbl.id]) }));
+  const allPtRows = ptRows.flatMap((x) => x.rows);
   const setLine = (i, k) => (x) => setLines((a) => { const l = { ...a[i] }; if (x === undefined) delete l[k]; else l[k] = x; a[i] = l; return a; });
   const nilai = (l) => l.nv ?? (l.k || 0) * (l.h || 0);
   const potL = (l) => l.pv ?? Math.round((nilai(l) * (l.d || 0)) / 100);
   const valAuto = lines.reduce((a, l) => a + nilai(l), 0), potAuto = lines.reduce((a, l) => a + potL(l), 0);
   const val = OV('val', valAuto), pot = OV('pot', potAuto);
-  const onPotAuto = onRows.reduce((a, x) => a + (x.pot || 0), 0), onPot = OV('onpot', onPotAuto);
+  const onPotAuto = allPtRows.reduce((a, x) => a + numOnly(x.pot), 0), onPot = OV('onpot', onPotAuto);
   const per = r.tUsed;
   const label = r.basis === 'visit' ? 'per kunjungan' : r.basis === 'bulan' ? 'sebulan' : 'dua bulan';
   const mm = months.map((m) => m.label).join(' – ');
@@ -96,7 +153,7 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
   const hmode = show.hmode || 'bulan';
   const hf = hmode === 'visit' ? r.visits : 1;
   // kesimpulan pengambilan di kunjungan
-  const ambilAuto = onRows.reduce((a, x) => a + numOnly(x.ambil), 0);
+  const ambilAuto = allPtRows.reduce((a, x) => a + numOnly(x.ambil), 0);
   const ambil = OV('ambil', ambilAuto);
   const kTgt = OV('k_tgt', r.per100), kMin = OV('k_min', r.per70);
   const status = ambil <= 0 ? ['belum diisi', 'mut'] : ambil >= kTgt ? ['capai target', 'g'] : ambil >= kMin ? ['lolos minimal', 'b'] : ['di bawah minimal', 'r'];
@@ -126,6 +183,16 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
             <span className="chips">{COLS[g].map(([k, l]) => <label key={k} className={'tog' + (cv(g, k) ? ' on' : '')}><input type="checkbox" checked={cv(g, k)} onChange={() => toggleCol(g, k)} />{l}</label>)}</span>
           </div>
         ))}
+        <div className="ptbls">
+          <div className="ctl" style={{ margin: '8px 0 0' }}>
+            <span className="lbl">Tabel program dari katalog</span>
+            <button className="btn sm pri" onClick={() => setTables((a) => [...a, { id: 't' + Date.now().toString(36), title: 'Program ON faktur', jenis: 'ON', tiers: 'all', picks: [], on: true }])}>+ Tambah tabel</button>
+            <button className="btn sm" onClick={() => setTables((a) => [...a, { id: 't' + Date.now().toString(36), title: 'Program OFF faktur', jenis: 'OFF', tiers: 'all', picks: [], on: true }])}>+ OFF faktur</button>
+            {!hasCatalog && <span className="mut" style={{ fontSize: 11.5 }}>Katalog program belum di-upload. Upload Excel program di section Program, lalu pilih program di sini.</span>}
+            <span className="mut" style={{ fontSize: 11.5 }}>Pilihan program berlaku untuk semua toko; yang tampil hanya program yang cocok dengan toko itu.</span>
+          </div>
+          {tables.map((t, ti) => <ProgTable key={t.id} t={t} progList={progList} progCount={progCount} wilayah={wilayah} onChange={(p) => setTables((a) => a.map((x) => (x.id === t.id ? { ...x, ...p } : x)))} onDelete={() => window.confirm(`Hapus tabel "${t.title}"?`) && setTables((a) => a.filter((x) => x.id !== t.id))} onMove={(d) => setTables((a) => { const j = ti + d; if (j < 0 || j >= a.length) return a; const n = [...a]; [n[ti], n[j]] = [n[j], n[ti]]; return n; })} canUp={ti > 0} canDown={ti < tables.length - 1} />)}
+        </div>
         <div className="ctl" style={{ margin: '8px 0 0' }}>
           <button className="btn sm" onClick={() => setGlobalShow(show)} title="Jadikan pengaturan tampilan ini sebagai bawaan untuk semua toko">Jadikan bawaan semua toko</button>
           <button className="btn sm" onClick={() => applyShow(show)} title="Terapkan pengaturan tampilan ini ke toko yang sesuai filter">Terapkan ke {nFilter} toko (filter)</button>
@@ -201,28 +268,43 @@ function Contract({ r, unit, patch, months, onClose, show, setGlobalShow, applyS
             <div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={() => setLines((a) => [...a, { n: '', k: 1, h: 0, d: 0 }])}>+ tambah SKU</button></div>
           </>)}
 
-          {show.on && (<>
-            <h4>Program ON faktur</h4>
-            <table>
-              <thead><tr><th className="l">Program</th>{cv('on', 'min') && <th>Min order</th>}{cv('on', 'sat') && <th>Satuan</th>}{cv('on', 'dis') && <th>Diskon</th>}{cv('on', 'pot') && <th>Potongan</th>}{cv('on', 'ambil') && <th title="Isi: berapa karton atau nilai yang diambil toko dari program ini">Pengambilan</th>}<th /></tr></thead>
-              <tbody>
-                {onRows.map((x, i) => {
-                  const sx = (k) => (v) => setOn((a) => { const o = { ...a[i] }; if (v === undefined) delete o[k]; else o[k] = v; a[i] = o; return a; });
-                  return (<tr key={i}>
-                    <td className="l"><Ed text v={x.n || ''} auto="" set={(v) => sx('n')(v ?? '')} /></td>
-                    {cv('on', 'min') && <td><Ed v={x.min || 0} auto={0} unit="Rp" dec={2} set={(v) => sx('min')(v ?? 0)} /></td>}
-                    {cv('on', 'sat') && <td><Ed text v={x.sat || ''} auto="" set={(v) => sx('sat')(v ?? '')} /></td>}
-                    {cv('on', 'dis') && <td><Ed text v={x.dis || ''} auto="" set={(v) => sx('dis')(v ?? '')} /></td>}
-                    {cv('on', 'pot') && <td><Ed v={x.pot || 0} auto={0} unit="Rp" set={(v) => sx('pot')(v ?? 0)} /></td>}
-                    {cv('on', 'ambil') && <td className="blank"><Ed text v={x.ambil || ''} auto="" set={(v) => sx('ambil')(v ?? '')} /></td>}
-                    <td><button className="rst" title="Hapus baris" onClick={() => setOn((a) => a.filter((_, j) => j !== i))}>×</button></td></tr>);
-                })}
-                {!onRows.length && <tr><td className="l mut" colSpan={7}>Belum ada program ON faktur. Di web asli diisi otomatis dari Excel program; di sini tambahkan manual.</td></tr>}
-                <tr><td className="l"><b>Total benefit ON faktur</b></td>{cv('on', 'min') && <td />}{cv('on', 'sat') && <td />}{cv('on', 'dis') && <td />}{cv('on', 'pot') && <td><b><Ed v={onPot} auto={onPotAuto} unit="Rp" set={setOv('onpot')} /></b></td>}{cv('on', 'ambil') && <td />}<td /></tr>
-              </tbody>
-            </table>
-            <div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={() => setOn((a) => [...a, { n: '', min: 0, sat: '', dis: '', pot: 0, ambil: '' }])}>+ tambah program ON</button></div>
-          </>)}
+          {show.on && ptRows.map(({ tbl, rows: rws }) => (
+            <div key={tbl.id}>
+              <h4>{tbl.title}</h4>
+              <table>
+                <thead><tr><th className="l">Program</th>{cv('on', 'min') && <th>Min order</th>}{cv('on', 'sat') && <th>Satuan</th>}{cv('on', 'dis') && <th>Diskon / reward</th>}{cv('on', 'pot') && <th>Potongan</th>}{cv('on', 'ambil') && <th title="Isi hasil pengambilan toko dari program ini. Angka murni dihitung sebagai Rp dan ikut ke Kesimpulan; tulis dengan satuan (mis. 12 ctn) kalau tidak mau ikut dijumlah">Pengambilan</th>}<th /></tr></thead>
+                <tbody>
+                  {rws.map((x) => {
+                    const sx = (k) => (v) => setPt(tbl.id, (c) => {
+                      if (x.extra) { const extra = [...(c.extra || [])]; extra[x.idx] = { ...extra[x.idx], [k]: v ?? '' }; return { ...c, extra }; }
+                      const ov = { ...(c.ov || {}) }; const o = { ...(ov[x.key] || {}) };
+                      if (v === undefined || v === x.auto?.[k]) delete o[k]; else o[k] = v;
+                      if (Object.keys(o).length) ov[x.key] = o; else delete ov[x.key];
+                      return { ...c, ov };
+                    });
+                    const del = () => setPt(tbl.id, (c) => (x.extra ? { ...c, extra: (c.extra || []).filter((_, j) => j !== x.idx) } : { ...c, hide: { ...(c.hide || {}), [x.key]: 1 } }));
+                    return (
+                      <tr key={x.key}>
+                        <td className="l"><Ed text v={x.n || ''} auto={x.auto?.n ?? ''} set={(v) => sx('n')(v ?? '')} /></td>
+                        {cv('on', 'min') && <td><Ed text v={x.min || ''} auto={x.auto?.min ?? ''} set={(v) => sx('min')(v ?? '')} /></td>}
+                        {cv('on', 'sat') && <td><Ed text v={x.sat || ''} auto={x.auto?.sat ?? ''} set={(v) => sx('sat')(v ?? '')} /></td>}
+                        {cv('on', 'dis') && <td><Ed text v={x.dis || ''} auto={x.auto?.dis ?? ''} set={(v) => sx('dis')(v ?? '')} /></td>}
+                        {cv('on', 'pot') && <td><Ed v={numOnly(x.pot)} auto={0} unit="Rp" set={(v) => sx('pot')(v ?? '')} /></td>}
+                        {cv('on', 'ambil') && <td className="blank"><Ed text v={x.ambil || ''} auto="" set={(v) => sx('ambil')(v ?? '')} /></td>}
+                        <td><button className="rst" title={x.extra ? 'Hapus baris' : 'Sembunyikan baris'} onClick={del}>x</button></td>
+                      </tr>
+                    );
+                  })}
+                  {!rws.length && <tr><td className="l mut" colSpan={7}>{!hasCatalog ? 'Katalog program belum di-upload (section Program). Tambahkan baris manual.' : !(tbl.picks || []).length ? 'Belum ada program dipilih untuk tabel ini. Pilih di pengaturan di atas kertas.' : 'Tidak ada program terpilih yang berlaku untuk toko ini.'}</td></tr>}
+                </tbody>
+              </table>
+              <div className="row" style={{ marginTop: 6 }}>
+                {Object.keys(ptd[tbl.id]?.hide || {}).length > 0 && <button className="btn sm" onClick={() => setPt(tbl.id, (c) => ({ ...c, hide: {} }))}>Tampilkan {Object.keys(ptd[tbl.id].hide).length} baris tersembunyi</button>}
+                <button className="btn sm" onClick={() => setPt(tbl.id, (c) => ({ ...c, extra: [...(c.extra || []), { n: '', min: '', sat: '', dis: '', pot: '', ambil: '' }] }))}>+ tambah baris</button>
+              </div>
+            </div>
+          ))}
+          {show.on && ptRows.length > 0 && cv('on', 'pot') && <div className="hrow"><span>Total potongan program</span><b><Ed v={onPot} auto={onPotAuto} unit="Rp" set={setOv('onpot')} /></b></div>}
 
           {show.kes && (<>
             <h4>Kesimpulan pengambilan kunjungan</h4>
@@ -266,6 +348,22 @@ export default function ItgV2({ demo }) {
   const unit = settings.unit || 'jt';
   const tc = (k) => settings.tcols?.[k] !== false;
   const C = useMemo(() => computeItg2(parsed, stores, time, edits, settings), [parsed, stores, time, edits, settings]);
+  // tabel program di kontrak: dipilih dari katalog program, hanya yang berlaku untuk toko itu
+  const catalog = demo.catalog || null;
+  const hasCatalog = !!(catalog?.rows?.length);
+  const ctx = useMemo(() => (hasCatalog ? makeCtx({ itgList: { items: parsed.items }, progcat: catalog, promos: [] }) : null), [hasCatalog, catalog, parsed]);
+  const progList = useMemo(() => catalogPrograms(catalog), [catalog]);
+  const tables = settings.progTables || DEFAULT_TABLES;
+  const setTables = (fn) => setS({ progTables: fn(tables) });
+  const progCount = useMemo(() => {
+    const m = {};
+    if (!hasCatalog) return m;
+    for (const p of progList) if (p.strata) m[p.code] = C.rows.length;
+    for (const r of C.rows) { const st = stores.get(r.id); if (!st) continue; for (const g of programsForStore({ progcat: catalog, itgList: null, promos: [] }, st, ctx)) m[g.code] = (m[g.code] || 0) + 1; }
+    return m;
+  }, [hasCatalog, catalog, ctx, C.rows, stores, progList]);
+  const wilayah = useMemo(() => wilayahOf(catalog), [catalog]);
+  const ptFor = (r) => { const st = stores.get(r.id); return tables.filter((t) => t.on !== false).map((t) => ({ tbl: t, gen: hasCatalog && st ? rowsForTable(t, catalog, ctx, st) : [] })); };
   const patchOf = (id) => (fn) => setEdits((o) => { const nx = fn({ ...(o[id] || {}) }); const n = { ...o }; if (Object.keys(nx).length) n[id] = nx; else delete n[id]; return n; });
   const setS = (p) => setSettings((o) => ({ ...o, ...p }));
   const [m1, m2] = parsed.months;
@@ -284,7 +382,7 @@ export default function ItgV2({ demo }) {
     setPdfBusy('Menyusun PDF...');
     try {
       const { makeItgContractPdf } = await import('../lib/contractPdf2.js');
-      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
+      makeItgContractPdf(list.map((r) => ({ r, show: showOf(r), pt: ptFor(r).map((x) => ({ tbl: x.tbl, rows: effectiveRows(x.gen, r.e.contract?.pt?.[x.tbl.id]) })) })), { unit, months: parsed.months, tg: time.tg, depot: parsed.meta?.depo || '', file: name || `Kontrak-ITG-${list.length}-toko`, orientation: settings.paper === 'landscape' ? 'landscape' : 'portrait' });
     } catch (e) { window.alert('Gagal membuat PDF: ' + (e?.message || e)); }
     setPdfBusy('');
   };
@@ -404,7 +502,7 @@ export default function ItgV2({ demo }) {
             </table></div>
             <div className="mut" style={{ padding: '6px 12px', fontSize: 11.5 }}>Klik angka untuk mengubah (oranye = diubah, ↺ = kembali ke suggest). Klik “Kontrak ›” (atau barisnya) untuk melihat dan mengedit kontrak toko; tab “Kontrak” menampilkan satu toko penuh dengan tombol sebelumnya / berikutnya. Warna persen: hijau = sesuai atau di atas laju timegone, kuning = sampai 70% dari laju, merah = di bawahnya.</div>
           </div>
-          {selRow && <div className="pw"><Contract r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
+          {selRow && <div className="pw"><Contract pt={ptFor(selRow)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={selRow} onPdf={() => downloadPdf([selRow], `Kontrak-ITG-${selRow.id}`)} unit={unit} months={parsed.months} patch={patchOf(selRow.id)} onClose={() => setSel(null)} show={showOf(selRow)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div>}
         </div>
       )}
 
@@ -421,7 +519,7 @@ export default function ItgV2({ demo }) {
               <button className="btn sm" disabled={ci < 0 || ci >= rows.length - 1} onClick={() => setSel(rows[ci + 1].id)}>Berikutnya ›</button>
               <span className="mut">{ci + 1} dari {rows.length} toko (mengikuti filter di atas: salesman, hari kunjungan, tanggal). Semua angka di kertas bisa diklik dan diedit.</span>
             </div>
-            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
+            {cr ? <div style={{ maxWidth: 760, margin: '0 auto' }}><Contract pt={ptFor(cr)} tables={tables} setTables={setTables} progList={progList} progCount={progCount} hasCatalog={hasCatalog} wilayah={wilayah} r={cr} onPdf={() => downloadPdf([cr], `Kontrak-ITG-${cr.id}`)} unit={unit} months={parsed.months} patch={patchOf(cr.id)} show={showOf(cr)} setGlobalShow={setGlobalShow} applyShow={applyShow} nFilter={rows.length} hm={demo.histMeta} tg={time.tg} /></div> : <div className="warn">Tidak ada toko.</div>}
           </div>
         );
       })()}

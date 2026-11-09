@@ -138,7 +138,8 @@ export function buildItgDemo(data) {
   const pm = data.meta?.period || {};
   const out = {
     parsed: data.itg2,
-    stores: data.stores.map((s) => ({ id: s.id, name: s.name, sales: s.sales, hk: s.hk, cc1: s.cc1, cc5: s.cc5, size: s.size, act: Math.round(s.act || 0), lm: Math.round(s.lm || 0), l3m: Math.round(s.l3m || 0) })),
+    catalog: data.progcat || null,
+    stores: data.stores.map((s) => ({ id: s.id, name: s.name, sales: s.sales, hk: s.hk, cc1: s.cc1, cc2: s.cc2, cc3: s.cc3, cc5: s.cc5, cc6: s.cc6, size: s.size, act: Math.round(s.act || 0), lm: Math.round(s.lm || 0), l3m: Math.round(s.l3m || 0) })),
     histMeta: { period: pm.label || '', cur: MN3[pm.month] || '', lm: MN3[((pm.month || 1) + 10) % 12 + 1] || '' },
   };
   DEMO.set(data, out);

@@ -90,3 +90,13 @@
 .iv .hrow { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 0; padding: 6px 10px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; font-weight: 600; }
 .iv td.blank { background: color-mix(in srgb, var(--warn) 10%, transparent); min-width: 90px; }
 .iv td.blank .ed { display: inline-block; min-width: 70px; min-height: 16px; }
+
+/* tabel program di kontrak: pengaturan dan daftar pilihan yang bisa dicari */
+.iv .ptbls { margin-top: 8px; display: grid; gap: 8px; }
+.iv .ptb { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--card2); }
+.iv .ppick { margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 8px; }
+.iv .plist { max-height: 240px; overflow: auto; margin-top: 6px; display: grid; gap: 2px; }
+.iv .prow { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+.iv .prow:hover { background: var(--acs); }
+.iv .prow.on { background: var(--acs); }
+.iv .prow .pn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
