@@ -3,7 +3,7 @@
 import { grid, key, str, toNum } from './table.js';
 
 export const nk = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-export const catOf = (sb) => sb.k || (sb.b && sb.b !== '-' ? sb.b : '');
+export const catOf = (sb) => sb.sub || sb.k || (sb.b && sb.b !== '-' ? sb.b : '');
 const tokens = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
 
 export function parseCTarget(wb, o = {}) {
@@ -40,7 +40,7 @@ export function ctargetIndex(data, mode = 'milestone') {
   const f = mode === 'bti' ? 1 : 1.1;
   const keys = { kat: new Set(), prin: new Set() };
   for (const x of items) keys[x.kind].add(nk(x.key));
-  const matchSub = (sb, kind, k) => (kind === 'kat' ? nk(catOf(sb)) === k : nk(sb.p) === k);
+  const matchSub = (sb, kind, k) => (kind === 'kat' ? nk(catOf(sb)) === k || nk(sb.k) === k : nk(sb.p) === k);
   const subIdx = new Map();
   const idxOf = (kind, k) => { const kk = kind + k; if (!subIdx.has(kk)) subIdx.set(kk, data.subs.map((sb, i) => (matchSub(sb, kind, k) ? i : -1)).filter((i) => i >= 0)); return subIdx.get(kk); };
   const valOf = (id, kind, k) => { const cur = data.cat?.cur?.[id]; if (!cur) return 0; let v = 0; for (const i of idxOf(kind, k)) v += cur[i] || 0; return v; };
@@ -85,6 +85,6 @@ export function ctargetIndex(data, mode = 'milestone') {
 export const valueOfStore = (data, id, kind, key0) => {
   const k = nk(key0); let v = 0;
   const cur = data.cat?.cur?.[id] || {};
-  data.subs.forEach((sb, i) => { if ((kind === 'kat' ? nk(catOf(sb)) === k : nk(sb.p) === k)) v += cur[i] || 0; });
+  data.subs.forEach((sb, i) => { if ((kind === 'kat' ? nk(catOf(sb)) === k || nk(sb.k) === k : nk(sb.p) === k)) v += cur[i] || 0; });
   return v;
 };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ctargetIndex } from '../lib/ctarget.js';
-import { LABELS, fmt, pace, paceCls, parseRoute, status, weekdayName } from '../lib/calc.js';
+import { LABELS, focusCatsOf, focusMatches, fmt, pace, paceCls, parseRoute, status, weekdayName } from '../lib/calc.js';
+import FocusPicker from '../components/FocusPicker.jsx';
 import { Bar, Panel, Seg } from '../components/ui.jsx';
 
 const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
@@ -10,8 +11,8 @@ const nk = (s) => String(s ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
 const MAX_ROWS = 3;
 
 const STORE_DIMS = ['sales', 'tim', 'store', 'channel', 'size', 'day', 'pareto', 'sak', 'ca'];
-const SKU_DIMS = ['principal', 'brand', 'sku', 'category'];
-const DIM_LABEL = { sales: 'Salesman', tim: 'Tim', store: 'Toko', channel: 'Channel', size: 'Ukuran toko', day: 'Hari kunjungan', pareto: 'Pareto JKS', sak: 'Pareto SAK', ca: 'Status CA', principal: 'Principal', brand: 'Brand', sku: 'SKU', category: 'Kategori' };
+const SKU_DIMS = ['principal', 'brand', 'sku', 'category', 'catdb', 'fokus'];
+const DIM_LABEL = { sales: 'Salesman', tim: 'Tim', store: 'Toko', channel: 'Channel', size: 'Ukuran toko', day: 'Hari kunjungan', pareto: 'Pareto JKS', sak: 'Pareto SAK', ca: 'Status CA', principal: 'Principal', brand: 'Brand', sku: 'SKU', category: 'Kategori (Sub brand)', catdb: 'Kategori SKU', fokus: 'Kategori fokus' };
 
 // indikator. grp: kelompok; st: tersedia di level toko; sk: tersedia di level SKU
 const MEAS = [
@@ -21,10 +22,10 @@ const MEAS = [
   { id: 'gap', label: 'Gap', grp: 'Pencapaian', st: 1, sk: 'tgt', kind: 'rp' },
   { id: 'vsTg', label: 'vs Timegone', grp: 'Pencapaian', st: 1, sk: 'tgt', kind: 'pace' },
   { id: 'qty', label: 'Qty', grp: 'Pencapaian', st: 'qty', sk: 'qty', kind: 'qty' },
-  { id: 'lm', label: 'Sep', grp: 'Tren', st: 1, sk: 0, kind: 'rp' },
-  { id: 'l3m', label: 'L3M', grp: 'Tren', st: 1, sk: 0, kind: 'rp' },
-  { id: 'vsLm', label: 'vs Sep', grp: 'Tren', st: 1, sk: 0, kind: 'pace' },
-  { id: 'vsL3m', label: 'vs L3M', grp: 'Tren', st: 1, sk: 0, kind: 'pace' },
+  { id: 'lm', label: 'Sep', grp: 'Tren', st: 1, sk: 'trend', kind: 'rp' },
+  { id: 'l3m', label: 'L3M', grp: 'Tren', st: 1, sk: 'trend', kind: 'rp' },
+  { id: 'vsLm', label: 'vs Sep', grp: 'Tren', st: 1, sk: 'trend', kind: 'pace' },
+  { id: 'vsL3m', label: 'vs L3M', grp: 'Tren', st: 1, sk: 'trend', kind: 'pace' },
   { id: 'n', label: 'Jml toko', grp: 'Jangkauan', st: 1, sk: 1, kind: 'int' },
   { id: 'ca', label: 'CA', grp: 'Jangkauan', st: 1, sk: 1, kind: 'int' },
   { id: 'caPct', label: '% CA', grp: 'Jangkauan', st: 1, sk: 1, kind: 'pct' },
@@ -33,7 +34,7 @@ const MEAS = [
   { id: 'avgCa', label: 'ACT / CA', grp: 'Jangkauan', st: 1, sk: 1, kind: 'rp' },
   { id: 'share', label: '% Kontribusi', grp: 'Jangkauan', st: 1, sk: 1, kind: 'pct' },
 ];
-const DEFAULT = { rows: ['sales'], ms: ['act', 'tgt', 'ach', 'ca'], filters: [], basis: 'same', unit: 'jt', cov: 'all', who: 'ALL', grp: 'ALL', q: '' };
+const DEFAULT = { rows: ['sales'], ms: ['act', 'tgt', 'ach', 'ca'], filters: [], basis: 'same', unit: 'jt', cov: 'all', who: 'ALL', grp: 'ALL', q: '', fok: [] };
 
 export default function Explore({ data, time, depot, team, mode = 'milestone', board }) {
   const ci = useMemo(() => ctargetIndex(data, mode), [data, mode]);
@@ -67,7 +68,11 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
     ca: (s) => (s.act >= 1 ? 'Sudah beli' : 'Belum beli'),
     ...Object.fromEntries((data.promos || []).map((p) => { const set = new Set(p.ids); return ['promo:' + p.id, (s) => (set.has(s.id) ? 'Ikut' : 'Tidak ikut')]; })),
   }), [data, teamName]);
-  const dimSku = useMemo(() => ({ principal: (sb) => sb.p || '-', brand: (sb) => sb.b || '-', sku: (sb) => sb.n || '-', category: (sb) => sb.k || '-' }), []);
+  const fokusGroups = useMemo(() => focusMatches(data, focusCatsOf(data)), [data]);
+  const fokusNames = useMemo(() => fokusGroups.map((g) => g.name), [fokusGroups]);
+  const fokusIdx = useMemo(() => { const m = new Map(); for (const g of fokusGroups) for (const i of g.idx) if (!m.has(i)) m.set(i, g.name); return m; }, [fokusGroups]);
+  const fokusByName = useMemo(() => new Map(fokusGroups.map((g) => [g.name, g.idx])), [fokusGroups]);
+  const dimSku = useMemo(() => ({ principal: (sb) => sb.p || '-', brand: (sb) => sb.b || '-', sku: (sb) => sb.n || '-', category: (sb) => sb.sub || sb.k || sb.b || '-', catdb: (sb) => sb.k || '-', fokus: (sb, i) => fokusIdx.get(i) || 'Lainnya' }), [fokusIdx]);
   const storeById = useMemo(() => new Map(data.stores.map((s) => [s.id + '|' + nk(s.sales), s])), [data.stores]);
   const storeCount = useMemo(() => { const o = {}; for (const s of data.stores) o[s.sales] = (o[s.sales] || 0) + 1; return o; }, [data.stores]);
   const nameOf = (id) => data.stores.find((s) => s.id === id)?.name || id;
@@ -85,7 +90,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
   const skuMode = [...st.rows, ...filters.map((f) => f.dim)].some((d) => SKU_DIMS.includes(d)) || !!q;
 
   const valuesOf = (dim) => {
-    if (SKU_DIMS.includes(dim)) return uniq(data.subs.map(dimSku[dim])).sort();
+    if (SKU_DIMS.includes(dim)) return uniq(data.subs.map((sb, i) => dimSku[dim](sb, i))).sort();
     if (dim === 'store') return data.stores.map((s) => s.id).slice(0, 400);
     return uniq(data.stores.map(dimStore[dim])).sort();
   };
@@ -117,7 +122,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
     } else {
       // level SKU: tiap toko x SKU yang punya nilai/qty
       const subOk = data.subs.map((sb, i) => {
-        if (!skF.every((f) => f.vals.includes(dimSku[f.dim](sb)))) return false;
+        if (!skF.every((f) => f.vals.includes(dimSku[f.dim](sb, i)))) return false;
         if (q && !`${sb.n} ${sb.b} ${sb.p} ${sb.c || ''} ${sb.k || ''}`.toLowerCase().includes(q)) return false;
         return true;
       });
@@ -128,19 +133,20 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
       const m = new Map();
       const cur = data.cat?.cur || {};
       const qt = data.qty?.cur || {};
-      let all = { act: 0, qty: 0, tgt: 0, buyers: new Set(), n: stores.length };
+      let all = { act: 0, qty: 0, tgt: 0, lm: 0, l3m: 0, buyers: new Set(), n: stores.length };
       for (const s of stores) {
-        const ids = new Set([...Object.keys(cur[s.id] || {}), ...Object.keys(qt[s.id] || {})]);
+        const ids = new Set([...Object.keys(cur[s.id] || {}), ...Object.keys(qt[s.id] || {}), ...Object.keys(data.cat?.lm?.[s.id] || {}), ...Object.keys(data.cat?.l3m?.[s.id] || {})]);
         for (const i of ids) {
           if (!subOk[i]) continue;
           const sb = data.subs[i];
-          const vals = st.rows.map((d) => (!SKU_DIMS.includes(d) ? dimStore[d](s) : dimSku[d](sb)));
+          const vals = st.rows.map((d) => (!SKU_DIMS.includes(d) ? dimStore[d](s) : dimSku[d](sb, +i)));
           const k = keyOf(vals);
           let g = m.get(k);
-          if (!g) { g = { vals, act: 0, qty: 0, tgt: 0, buyers: new Set(), sales: new Set(), dk: sdKey(s) }; m.set(k, g); }
+          if (!g) { g = { vals, act: 0, qty: 0, tgt: 0, lm: 0, l3m: 0, buyers: new Set(), sales: new Set(), dk: sdKey(s) }; m.set(k, g); }
           const a = cur[s.id]?.[i] || 0;
           const qq = qt[s.id]?.[i] || 0;
-          g.act += a; g.qty += qq; g.tgt += data.skuTgt?.[s.id]?.[i] || 0;
+          const lmv = data.cat?.lm?.[s.id]?.[i] || 0, l3v = data.cat?.l3m?.[s.id]?.[i] || 0;
+          g.act += a; g.qty += qq; g.tgt += data.skuTgt?.[s.id]?.[i] || 0; g.lm += lmv; g.l3m += l3v; all.lm += lmv; all.l3m += l3v;
           g.sales.add(s.sales);
           if (a > 0 || qq > 0) g.buyers.add(s.id);
           all.act += a; all.qty += qq; all.tgt += data.skuTgt?.[s.id]?.[i] || 0;
@@ -174,9 +180,9 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
           }
         }
         if (!hasSkuTgt && !ctUsed) { const pt = principalTgt(g); if (pt != null) { tgt = pt; tgtNote = true; } else tgt = 0; }
-        return { ...g, ...skuMeasures({ act: g.act, qty: g.qty, tgt, buyers: g.buyers.size, n }), tgtNote, hasT: tgt > 0 };
+        return { ...g, ...skuMeasures({ act: g.act, qty: g.qty, tgt, buyers: g.buyers.size, n, lm: g.lm, l3m: g.l3m }), tgtNote, hasT: tgt > 0 };
       });
-      total = skuMeasures({ act: all.act, qty: all.qty, tgt: hasSkuTgt ? all.tgt : 0, buyers: all.buyers.size, n: all.n });
+      total = skuMeasures({ act: all.act, qty: all.qty, tgt: hasSkuTgt ? all.tgt : 0, buyers: all.buyers.size, n: all.n, lm: all.lm, l3m: all.l3m });
       total.hasT = hasSkuTgt && all.tgt > 0;
       const tot = total.act;
       groups.forEach((g) => { g.share = tot ? g.act / tot : 0; });
@@ -212,6 +218,13 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
         share: 0,
         hasT: tgt > 0,
       };
+      // kategori fokus yang dipilih: ACT, target, % Ach, dan L3M per kategori sebagai kolom
+      for (const c of st.fok || []) {
+        const idx = fokusByName.get(c) || [];
+        let a = 0, l = 0, t = 0;
+        for (const s of list) { const cu = data.cat?.cur?.[s.id], l3 = data.cat?.l3m?.[s.id]; for (const i of idx) { a += cu?.[i] || 0; l += l3?.[i] || 0; } if (ci.has) t += ci.storeT(s.id, 'kat', c).t || 0; }
+        o['fk:' + c + ':act'] = a; o['fk:' + c + ':l3'] = l; o['fk:' + c + ':tgt'] = t; o['fk:' + c + ':ach'] = t ? a / t : null;
+      }
       // program (GreenStore / MSS)
       const idSet = new Set(list.map((s) => s.id));
       const salSet = new Set(list.map((s) => s.sales));
@@ -229,25 +242,32 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
       }
       return o;
     }
-    function skuMeasures({ act, qty, tgt, buyers, n }) {
-      return { act, qty, tgt, ach: tgt ? act / tgt : null, gap: act - tgt, vsTg: tgt > 0 && tgBase > 0 ? act / (tgt * tgBase) : null, n, ca: buyers, caPct: n ? buyers / n : 0, notBuy: Math.max(0, n - buyers), avgCa: buyers ? act / buyers : 0, share: 0 };
+    function skuMeasures({ act, qty, tgt, buyers, n, lm = 0, l3m = 0 }) {
+      const baseLm = st.basis === 'same' ? lm * tgBase : lm, baseL3 = st.basis === 'same' ? l3m * tgBase : l3m;
+      return { act, qty, tgt, ach: tgt ? act / tgt : null, gap: act - tgt, vsTg: tgt > 0 && tgBase > 0 ? act / (tgt * tgBase) : null, n, ca: buyers, caPct: n ? buyers / n : 0, notBuy: Math.max(0, n - buyers), avgCa: buyers ? act / buyers : 0, share: 0, lm: baseLm, l3m: baseL3, vsLm: baseLm > 0 ? act / baseLm : null, vsL3m: baseL3 > 0 ? act / baseL3 : null };
     }
   }, [data, st, skuMode, q, tgBase, progs, hasSkuTgt, ci]); // eslint-disable-line
 
   // ---------- daftar indikator termasuk program ----------
   const allMeas = useMemo(() => {
-    const base = MEAS.map((m) => ({ ...m, avail: skuMode ? (m.sk === 'tgt' ? true : !!m.sk) : (m.st === 'qty' ? hasQty : !!m.st) }));
+    const base = MEAS.map((m) => ({ ...m, avail: skuMode ? (m.sk === 'tgt' ? true : m.sk === 'trend' ? !!data.hasSkuTrend : !!m.sk) : (m.st === 'qty' ? hasQty : !!m.st) }));
+    for (const c of st.fok || []) {
+      base.push({ id: `fk:${c}:act`, label: `${c} ACT`, grp: 'Kategori fokus', kind: 'rp', avail: !skuMode });
+      base.push({ id: `fk:${c}:tgt`, label: `${c} Target`, grp: 'Kategori fokus', kind: 'rp', avail: !skuMode });
+      base.push({ id: `fk:${c}:ach`, label: `${c} % Ach`, grp: 'Kategori fokus', kind: 'pct', avail: !skuMode });
+      base.push({ id: `fk:${c}:l3`, label: `${c} L3M`, grp: 'Kategori fokus', kind: 'rp', avail: !skuMode });
+    }
     for (const p of progs) {
       base.push({ id: `p:${p}:t`, label: `${p} Target`, grp: 'Program', kind: 'int', avail: !skuMode });
       base.push({ id: `p:${p}:a`, label: `${p} Ach`, grp: 'Program', kind: 'int', avail: !skuMode });
       base.push({ id: `p:${p}:pct`, label: `${p} %`, grp: 'Program', kind: 'pct', avail: !skuMode });
     }
     return base;
-  }, [skuMode, hasQty, progs]);
+  }, [skuMode, hasQty, progs, st.fok, data.hasSkuTrend]);
   const mById = Object.fromEntries(allMeas.map((m) => [m.id, m]));
   const noteOf = (m) => {
     if (m.avail) return '';
-    if (skuMode) return m.grp === 'Tren' ? 'tidak tersedia di level SKU (Sep & L3M cuma ada per toko)' : m.grp === 'Program' ? 'program hanya di level toko/salesman' : 'tidak tersedia di level SKU';
+    if (skuMode) return m.grp === 'Tren' ? 'bulan lalu dan L3M per SKU butuh file Omset per SKU format tiga blok (bulan berjalan, L3M, bulan lalu)' : m.grp === 'Program' || m.grp === 'Kategori fokus' ? 'hanya di level toko / salesman (tanpa dimensi SKU di rows atau filter)' : 'tidak tersedia di level SKU';
     return m.id === 'qty' ? 'belum ada data qty (upload slot Qty)' : '';
   };
   const labelOf = (m) => {
@@ -334,6 +354,21 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
           <span className="mut">Cakupan toko</span>
           <Seg value={st.cov} onChange={(v) => set({ cov: v })} options={[{ v: 'all', label: 'Semua toko' }, { v: 'pj', label: 'Pareto JKS' }, { v: 'np', label: 'Non-pareto' }, { v: 'ps', label: 'Pareto SAK' }]} />
           {data.hasGroups && (<><span className="mut" style={{ marginLeft: 8 }}>Tim</span><Seg value={st.grp} onChange={(v) => set({ grp: v })} options={[{ v: 'ALL', label: 'Semua' }, ...timOpts.map((t) => ({ v: t, label: t }))]} /></>)}
+        </div>
+        <div className="opt-row" style={{ alignItems: 'flex-start' }}>
+          <span className="mut" style={{ paddingTop: 6 }}>Kategori fokus</span>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <FocusPicker kinds={['kat']} cats={fokusNames} picks={(st.fok || []).map((k) => ({ kind: 'kat', key: k }))} onToggle={(kind, key) => set({ fok: (st.fok || []).includes(key) ? st.fok.filter((x) => x !== key) : [...(st.fok || []), key] })} placeholder="cari kategori fokus…" />
+            {(st.fok || []).length > 0 && (
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                <span className="mut" style={{ fontSize: 12 }}>Pakai sebagai</span>
+                <button className="btn sm" onClick={() => setSt((o) => ({ ...o, ms: [...new Set([...o.ms, ...o.fok.flatMap((c) => [`fk:${c}:act`, `fk:${c}:ach`, `fk:${c}:l3`])])] }))}>Kolom (ACT, % Ach, L3M)</button>
+                <button className="btn sm" onClick={() => setSt((o) => ({ ...o, filters: [...o.filters.filter((f) => f.dim !== 'fokus'), { dim: 'fokus', vals: o.fok }] }))}>Filter</button>
+                <button className="btn sm" onClick={() => setSt((o) => ({ ...o, rows: ['fokus', ...o.rows.filter((r) => r !== 'fokus')].slice(0, MAX_ROWS) }))}>Baris</button>
+                <button className="btn sm ghost" onClick={() => setSt((o) => ({ ...o, fok: [], filters: o.filters.filter((f) => f.dim !== 'fokus'), rows: o.rows.filter((r) => r !== 'fokus'), ms: o.ms.filter((m) => !m.startsWith('fk:')) }))}>Hapus</button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="opt-row">
           <span className="mut">Apa</span>

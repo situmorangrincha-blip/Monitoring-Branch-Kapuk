@@ -29,7 +29,7 @@ export default function FocusPicker({ kinds = ['sku', 'kat', 'prin'], skus = [],
         {kinds.length > 1 && (
           <div className="seg">{kinds.map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setQ(''); }}>{TAB[k]}{count(k) ? ` · ${count(k)}` : ''}</button>)}</div>
         )}
-        <input className="input" value={q} placeholder={placeholder || `cari ${TAB[kind].toLowerCase()}…`} onChange={(e) => setQ(e.target.value)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} />
+        <input className="input" value={q} placeholder={placeholder || `cari ${TAB[kind].toLowerCase()}…`} onChange={(e) => setQ(e.target.value)} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 250)} />
         <span className="mut fp-n">{list.length} {TAB[kind].toLowerCase()}</span>
       </div>
       {(open || q) && (

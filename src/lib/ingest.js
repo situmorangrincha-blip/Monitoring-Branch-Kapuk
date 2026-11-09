@@ -397,6 +397,28 @@ export const PARSERS = { ctarget: (wb, o) => parseCTarget(wb, o), progcat: (wb, 
 
 // ====================== GABUNG SLOT -> data siap pakai ======================
 const akey = (x) => String(x ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+// bulan lalu dan L3M per toko x SKU dari blok file Omset / Qty per SKU (tiga blok): mengisi cat.lm / cat.l3m dan qty.lm / qty.l3m
+function applyTrend(d) {
+  const key = new Map();
+  d.subs.forEach((sb, i) => { for (const p of String(sb.c || '').split(/[\/,;]+/)) { const k = akey(p); if (k && !key.has(k)) key.set(k, i); } });
+  const ids = new Set(d.stores.map((s) => s.id));
+  d.cat.lm = {}; d.cat.l3m = {}; d.qty.lm = {}; d.qty.l3m = {};
+  const put = (pk, lmO, l3O) => {
+    if (!pk) return;
+    for (const r of pk.rows) {
+      const id = pk.dict.id[r[0]];
+      if (!ids.has(id)) continue;
+      let i;
+      for (const p of String(pk.dict.sku[r[1]]).split(/[\/,;]+/)) { const k = akey(p); if (key.has(k)) { i = key.get(k); break; } }
+      if (i == null) continue;
+      if (r[6]) { const o = (lmO[id] ||= {}); o[i] = (o[i] || 0) + r[6]; }
+      if (r[7]) { const o = (l3O[id] ||= {}); o[i] = (o[i] || 0) + r[7]; }
+    }
+  };
+  put(d.blocks.om, d.cat.lm, d.cat.l3m);
+  put(d.blocks.qt, d.qty.lm, d.qty.l3m);
+  d.hasSkuTrend = Object.keys(d.cat.lm).length > 0 || Object.keys(d.cat.l3m).length > 0;
+}
 // satu SKU bisa punya beberapa kode (GKAOG8/AJTF8Z): semua kode jadi alias ke kode utama di database SKU
 export function aliasMap(items) {
   const m = new Map();
@@ -430,6 +452,7 @@ export function buildData(slots, depot, team) {
   d.ctarget = slots.ctarget || null;
   d.itgcfg = slots.itgcfg || null;
   d.skudb = slots.skudb?.items || [];
+  d.subs = d.subs.map((sb) => ({ ...sb, sub: sb.b })); // sub brand dari file (sebelum brand ditimpa database SKU); dipakai sebagai Kategori
   if (d.skudb.length) {
     const by = am;
     d.subs = d.subs.map((sb) => { const x = sb.c && by.get(akey(sb.c)); return x ? { ...sb, n: x.n || sb.n, b: x.b || sb.b, k: x.k || sb.k } : sb; });
@@ -437,6 +460,7 @@ export function buildData(slots, depot, team) {
   if (d.skudb.length && skuAll) {
     d.skuMissing = d.subs.filter((sb) => sb.c && !am.has(akey(sb.c))).map((sb) => sb.c);
   } else d.skuMissing = [];
+  if (skuAll && (d.blocks.om || d.blocks.qt)) applyTrend(d);
   d.rules = slots.rules || defaultRulesFor(depot, team);
   d.pAct = d.pAct; // dikloning di applyRules bila ada aturan
   applyRules(d, d.rules);

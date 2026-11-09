@@ -266,3 +266,4 @@ html[data-anim='off'] .ws-main, html[data-anim='off'] .ws-pv { transition: none;
 .bd-cc i { width: 100%; border-radius: 4px 4px 0 0; display: block; }
 .bd-cc em { font-style: normal; font-size: 9.5px; color: var(--mute); }
 .bd-cc span { font-size: 9.5px; color: var(--mute); }
+

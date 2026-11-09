@@ -46,3 +46,9 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Font:** 23 pilihan jenis huruf di header (dimuat hanya saat dipilih). **Ukuran huruf** sekarang bisa sampai 60% (A-) dan 140% (A+). Paket font baru ada di package.json, jadi Vercel akan menginstalnya otomatis.
 - **Editor DAP:** Fokus satu salesman (semua tabel salesman itu berurutan: DAP, Top toko, ON faktur), urutan cetak per tabel atau per salesman, kertas Landscape / Portrait, skala cetak 50-100%, dan susunan item "Bertumpuk di bawah" (maks N item per tabel) supaya kolom tidak melebar saat dicetak.
 - **PDF kontrak ITG:** pilihan kertas Portrait / Landscape.
+
+## Update 4 (9 Nov 2026, malam)
+- **Jelajah, kategori:** bulan lalu dan L3M per toko per SKU sekarang diisi dari blok file Omset / Qty per SKU (tiga blok), jadi kotak Tren (bulan lalu, L3M, vs bulan lalu, vs L3M) aktif saat rows berisi SKU, kategori, brand, atau principal. Kategori = Sub Brand dari file (cocok dengan kategori fokus di Excel monitoring); kategori dari Database SKU tersedia sebagai dimensi terpisah "Kategori SKU".
+- **Jelajah, Kategori fokus:** pilih kategori fokus lewat pencarian di panel Cek Cepat, lalu pakai sebagai **Kolom** (ACT, % Ach, L3M per kategori), **Filter**, atau **Baris**.
+- **Market Productivity, GreenStore dan MSS per toko:** filter **Hari JKS** dan **Pekan JKS** (1&3, 2&4, mingguan), plus kolom Hari JKS / Pekan JKS.
+- Pemilih (SKU / kategori / principal) tidak lagi membuat tombol di bawahnya melompat saat diklik.

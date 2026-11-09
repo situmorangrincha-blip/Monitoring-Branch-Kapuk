@@ -253,7 +253,7 @@ export function focusMatches(data, cats) {
     const res = c.kw.map((k) => new RegExp('(^|[^a-z0-9])' + esc(k.trim().toLowerCase()) + '([^a-z0-9]|$)'));
     const idx = [];
     data.subs.forEach((s, i) => {
-      const hay = `${s.p} ${s.b} ${s.n}`.toLowerCase();
+      const hay = `${s.p} ${s.b} ${s.sub || ''} ${s.n}`.toLowerCase();
       if (res.some((r) => r.test(hay))) idx.push(i);
     });
     return { ...c, idx, subs: idx.map((i) => data.subs[i].n) };

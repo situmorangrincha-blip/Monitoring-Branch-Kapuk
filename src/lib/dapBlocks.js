@@ -35,8 +35,8 @@ function l3Index(data) {
     for (const o of skuOptions(data)) for (const p of parts(o.k)) if (!alias.has(p)) alias.set(p, o);
     for (const r of sv.rows) {
       const o = parts(r.sku).map((p) => alias.get(p)).find(Boolean);
-      const cat = o ? o.cat || (o.b && o.b !== '-' ? o.b : '') : '';
-      const e = { sku: parts(r.sku), cat, prin: nk(r.prin), o3: r.o3 || 0, q3: r.q3 || 0 };
+      const cat = r.sub || (o ? o.cat || (o.b && o.b !== '-' ? o.b : '') : '');
+      const e = { sku: parts(r.sku), cat, catdb: o?.cat || '', prin: nk(r.prin), o3: r.o3 || 0, q3: r.q3 || 0 };
       if (!by.has(r.id)) by.set(r.id, []);
       by.get(r.id).push(e);
     }
@@ -51,7 +51,7 @@ function itemL3(idx, id, p, metric) {
   let v = 0;
   const kp = parts(p.key);
   for (const r of rows) {
-    const hit = p.kind === 'sku' ? r.sku.some((x) => kp.includes(x)) : p.kind === 'kat' ? r.cat === p.key : r.prin === nk(p.key);
+    const hit = p.kind === 'sku' ? r.sku.some((x) => kp.includes(x)) : p.kind === 'kat' ? r.cat === p.key || r.catdb === p.key : r.prin === nk(p.key);
     if (hit) v += metric === 'qty' ? r.q3 : r.o3;
   }
   return v;

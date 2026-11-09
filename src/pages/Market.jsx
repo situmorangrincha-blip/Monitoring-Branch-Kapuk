@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Panel } from '../components/ui.jsx';
 import GTable, { fm } from '../components/GTable.jsx';
 import { matchName } from '../lib/market.js';
+import { parseRoute, weekdayName } from '../lib/calc.js';
 
 const pc = (a, b) => (b ? a / b : null);
 const tone = (v) => (v == null ? '' : v >= 1 ? 'ok' : v >= 0.8 ? 'warn' : 'neg');
@@ -30,6 +31,7 @@ export default function Market({ data, pv }) {
   const [allSales, setAllSales] = useState(false);
   const team = data.salesmen || [];
   const [fs, setFs] = useState('ALL'), [fch, setFch] = useState('ALL'), [onlyT, setOnlyT] = useState(false);
+  const [fd, setFd] = useState('ALL'), [fw, setFw] = useState('ALL');
   const [dsal, setDsal] = useState('');
   const nameList = useMemo(() => [...new Set([...team, ...(m?.salesman || []).map((x) => x.name)])], [team, m]);
   const rows = useMemo(() => {
@@ -48,10 +50,10 @@ export default function Market({ data, pv }) {
     if (!m) return [];
     const gs = new Map(m.gs.stores.map((x) => [x.id, x.gs]));
     const ms = new Map(m.mss.stores.map((x) => [x.id, x]));
-    return data.stores.filter((s) => gs.has(s.id) || ms.has(s.id)).map((s) => ({ id: s.id, name: s.name, sales: s.sales, ch: s.cc1 && s.cc1 !== '-' ? s.cc1 : '-', size: s.size || '-', gs: gs.get(s.id) ?? 0, ma: ms.get(s.id)?.act ?? 0, mt: ms.get(s.id)?.tgt ?? 0 }));
+    return data.stores.filter((s) => gs.has(s.id) || ms.has(s.id)).map((s) => { const r = parseRoute(s.hk || ''); return { id: s.id, name: s.name, sales: s.sales, ch: s.cc1 && s.cc1 !== '-' ? s.cc1 : '-', size: s.size || '-', wd: r.wd || 0, hari: r.wd ? weekdayName(r.wd) : '-', pekan: r.wd ? (r.weeks ? r.weeks.join('&') : 'Mingguan') : '-', gs: gs.get(s.id) ?? 0, ma: ms.get(s.id)?.act ?? 0, mt: ms.get(s.id)?.tgt ?? 0 }; });
   }, [m, data.stores]);
   const chans = useMemo(() => [...new Set(stores.map((s) => s.ch))].sort(), [stores]);
-  const stFilt = stores.filter((s) => (fs === 'ALL' || s.sales === fs) && (fch === 'ALL' || s.ch === fch) && (!onlyT || s.mt > 0));
+  const stFilt = stores.filter((s) => (fs === 'ALL' || s.sales === fs) && (fch === 'ALL' || s.ch === fch) && (fd === 'ALL' || s.wd === +fd) && (fw === 'ALL' || s.pekan === fw) && (!onlyT || s.mt > 0));
   if (!m) return <Panel title="Market Productivity"><div className="mut">Belum ada file Market Productivity. Upload Excel yang berisi sheet MP-Salesman, OLAP EC dan AC, dan OLAP Greenstore.</div></Panel>;
   const k = shownRows;
   const ecP = pc(avg(k.map((r) => r.ecA)), avg(k.map((r) => r.ecT))), acP = pc(avg(k.map((r) => r.acA)), avg(k.map((r) => r.acT)));
@@ -79,7 +81,7 @@ export default function Market({ data, pv }) {
   ];
   const colsSt = [
     { k: 'sales', label: 'Salesman', get: (r) => r.sales }, { k: 'id', label: 'ID', get: (r) => r.id, hide: true }, { k: 'name', label: 'Toko', get: (r) => r.name },
-    { k: 'ch', label: 'Channel', get: (r) => r.ch }, { k: 'size', label: 'Ukuran', get: (r) => r.size, hide: true },
+    { k: 'ch', label: 'Channel', get: (r) => r.ch }, { k: 'hari', label: 'Hari JKS', get: (r) => r.hari }, { k: 'pekan', label: 'Pekan JKS', get: (r) => r.pekan, hide: true }, { k: 'size', label: 'Ukuran', get: (r) => r.size, hide: true },
     { k: 'gs', label: 'GreenStore', num: true, get: (r) => r.gs, fmt: fm.n, sum: true },
     { k: 'ma', label: 'MSS Act', num: true, get: (r) => r.ma, fmt: fm.n, sum: true }, { k: 'mt', label: 'MSS Tgt', num: true, get: (r) => r.mt, fmt: fm.n, sum: true },
     { k: 'mp', label: 'MSS %', num: true, get: (r) => pc(r.ma, r.mt), fmt: fm.pc, cls: tone, tot: (rs, v) => pc(rs.reduce((a, r) => a + v(r, 'ma'), 0), rs.reduce((a, r) => a + v(r, 'mt'), 0)) },
@@ -114,6 +116,8 @@ export default function Market({ data, pv }) {
           <div className="row" style={{ marginBottom: 6 }}>
             <select className="input" value={fs} onChange={(e) => setFs(e.target.value)}><option value="ALL">Semua salesman</option>{team.map((s) => <option key={s}>{s}</option>)}</select>
             <select className="input" value={fch} onChange={(e) => setFch(e.target.value)}><option value="ALL">Semua channel</option>{chans.map((s) => <option key={s}>{s}</option>)}</select>
+            <select className="input" value={fd} onChange={(e) => setFd(e.target.value)} title="Hari kunjungan menurut JKS"><option value="ALL">Semua hari JKS</option>{[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{weekdayName(n)}</option>)}</select>
+            <select className="input" value={fw} onChange={(e) => setFw(e.target.value)} title="Pola pekan di JKS"><option value="ALL">Semua pekan</option><option value="1&3">Pekan 1&3</option><option value="2&4">Pekan 2&4</option><option value="Mingguan">Mingguan</option></select>
             <label className="mut" style={{ fontWeight: 600 }}><input type="checkbox" checked={onlyT} onChange={(e) => setOnlyT(e.target.checked)} /> hanya toko dengan target MSS</label>
           </div>
           <GTable id="mp-store" cols={colsSt} rows={stFilt} rowKey={(r) => r.id} topN={50} defaultSort={{ k: 'mt', dir: 'desc' }} />

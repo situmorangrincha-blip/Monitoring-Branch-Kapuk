@@ -60,12 +60,13 @@ export function skuOptions(data) {
   for (const sb of data.subs) {
     const k = sbKey(sb);
     const o = m.get(k) || { k, n: sb.n, b: sb.b || '', cat: sb.k || '', inData: false };
+    o.sub = sb.sub || o.sub || '';
     o.inData = true; o.n = o.n || sb.n; o.b = o.b || sb.b; o.cat = o.cat || sb.k || '';
     m.set(k, o);
   }
   return [...m.values()].sort((a, b) => a.n.localeCompare(b.n));
 }
-const catOf = (o) => o.cat || (o.b && o.b !== '-' ? o.b : '');
+const catOf = (o) => o.sub || o.cat || (o.b && o.b !== '-' ? o.b : '');
 export function catOptions(data) {
   return [...new Set(skuOptions(data).map(catOf).filter(Boolean))].sort();
 }
@@ -76,7 +77,7 @@ export const skusOfCat = (data, cat) => skuOptions(data).filter((o) => catOf(o) 
 export function focusVal(data, id, f, ci) {
   let act = 0, qty = 0, tgt = 0, est = false;
   data.subs.forEach((sb, i) => {
-    const hit = f.t === 'sku' ? sbKey(sb) === f.k : f.t === 'prin' ? nk(sb.p) === nk(f.k) : (sb.k || sb.b) === f.k;
+    const hit = f.t === 'sku' ? sbKey(sb) === f.k : f.t === 'prin' ? nk(sb.p) === nk(f.k) : (sb.sub || sb.k || sb.b) === f.k || sb.k === f.k;
     if (!hit) return;
     act += data.cat?.cur?.[id]?.[i] || 0;
     qty += data.qty?.cur?.[id]?.[i] || 0;
