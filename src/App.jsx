@@ -25,6 +25,7 @@ import SoDo from './pages/SoDo.jsx';
 import Market from './pages/Market.jsx';
 import ViewPrefs from './components/ViewPrefs.jsx';
 import DapEditor from './pages/DapEditor.jsx';
+import ItgScup from './pages/ItgScup.jsx';
 import Board from './components/Board.jsx';
 import SkuRank from './pages/SkuRank.jsx';
 import ItgV2 from './pages/ItgV2.jsx';
@@ -40,6 +41,7 @@ const PAGES = [
   { id: 'skurank', label: 'Ranking SKU' },
   { id: 'explore', label: 'Jelajah' },
   { id: 'dap', label: 'DAP' },
+  { id: 'scup', label: 'ITG Supercup' },
   { id: 'rapot', label: 'Rapot' },
   { id: 'perf', label: 'Performa' },
   { id: 'pareto', label: 'Pareto & CA' },
@@ -50,7 +52,7 @@ const PAGES = [
 ];
 const NAV = {
   monitor: ['explore', 'dap', 'rapot', 'perf', 'pareto', 'stores', 'sales', 'focus', 'chart'],
-  itg: ['itg', 'dap'],
+  itg: ['itg', 'scup', 'dap'],
   program: ['program'],
   sodo: ['sodo'],
   market: ['market'],
@@ -58,7 +60,7 @@ const NAV = {
 };
 const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const fmtUp = (iso) => { try { return new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
-const EMPTY = { main: null, sku: null, val: null, prog: null, promo: null, rules: null, progcat: null, itg: null, sodo: null, ctarget: null, itgcfg: null, market: null, skudb: null };
+const EMPTY = { main: null, sku: null, val: null, prog: null, promo: null, rules: null, progcat: null, itg: null, sodo: null, ctarget: null, itgcfg: null, market: null, itgscup: null, scuphist: null, skudb: null };
 
 export default function App() {
   const [phase, setPhase] = useState('probe'); // probe | depot | section | team | loading | ready | error
@@ -185,6 +187,7 @@ export default function App() {
   );
 
   async function saveItgCfg(c) { setSlots((o) => ({ ...o, itgcfg: c })); try { await saveSlot(storeMode, depot, team, 'itgcfg', c); } catch (e) { say('Gagal simpan pengaturan kontrak: ' + (e?.message || e)); } }
+  async function saveScupHist(h) { setSlots((o) => ({ ...o, scuphist: h })); try { await saveSlot(storeMode, depot, team, 'scuphist', h); } catch (e) { say('Gagal simpan riwayat Supercup: ' + (e?.message || e)); } }
   async function saveSodo(d) { setSlots((o) => ({ ...o, sodo: d })); try { await saveSlot(storeMode, depot, team, 'sodo', d); } catch (e) { say('Gagal simpan SO-DO: ' + (e?.message || e)); } }
   const common = { D, data, time };
   const body = D && {
@@ -196,6 +199,7 @@ export default function App() {
     sales: <Salesman {...common} sal={sal} setSal={setSal} onStore={setStore} />,
     chart: <Charts {...common} mode={mode} setMode={setMode} sub={subs.chart} setSub={setSub} sal={sal} setSal={setSal} snapping={snapping} snapBg={null} cmpDim={cmpDim} setCmpDim={setCmpDim} />,
     rapot: <Rapot data={data} time={time} mode={effMode} depot={depot} team={team} />,
+    scup: data.scup ? <ItgScup data={data} depot={depot} team={team} onSaveHist={saveScupHist} /> : <Panel title="ITG Supercup"><div className="mut" style={{ marginBottom: 8 }}>Belum ada file target ITG Supercup untuk tim ini. Upload Excel target (Id Pelanggan, Target per bulan dalam ctn).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Target ITG Supercup</button></Panel>,
     market: <Market data={data} pv={{ market: data.market }} />,
     skurank: <SkuRank data={data} pv={{ sku: skuView(data.blocks) }} time={time} />,
     itg: data.itg2 ? <ItgV2 key={data.itg2.fileName || 'itg'} demo={buildItgDemo(data)} /> : <Panel title="ITG"><div className="mut" style={{ marginBottom: 8 }}>Belum ada Excel ITG untuk tim ini (format baru: Target per bulan, Actual, Reward).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Excel ITG</button></Panel>,

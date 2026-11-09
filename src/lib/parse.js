@@ -684,12 +684,14 @@ export function parseAll(wb, metaIn = {}) {
     }
   };
 
-  // ===== ARJUNA =====
-  try {
+  // ===== PEMBACA FORMAT BARU (satu pembaca untuk tim mana pun): TGT, OLAP SALES, OLAP FOCUS CATEGORY, LAB, JKS SALESMAN, DAP TGT PER TOKO =====
+  const reasons = {};
+  const readNew = (team, label) => {
+    try {
     for (const [k, label] of [['tgt', 'TGT'], ['sales', 'OLAP SALES'], ['jks', 'JKS SALESMAN']]) {
       if (!sh[k]) throw new Error(`Sheet "${label}" tidak ditemukan`);
     }
-    if (!names.arjuna.length) throw new Error('tidak ada salesman tim Arjuna di JKS (cek "Atur nama tim")');
+    if (!names[team].length) throw new Error('tidak ada salesman tim ' + label + ' di JKS (cek "Atur nama tim")');
     const w = [];
     if (labWarn) w.push(labWarn);
     if (!sh.lab) w.push('Sheet LAB tidak ada: target toko, min CA prod & flag pareto kosong');
@@ -698,7 +700,7 @@ export function parseAll(wb, metaIn = {}) {
     if (!bti) w.push('Sheet TGT: blok "TARGET BTI" tidak ketemu, pilihan BTI dimatikan');
     if (!hj) throw new Error('Sheet JKS SALESMAN: header "Id Pelanggan" / "Nama Salesman" tidak ketemu');
     if (!A.piv) throw new Error('Sheet OLAP SALES: pivot salesman x principal tidak ketemu');
-    const salesmen = names.arjuna;
+    const salesmen = names[team];
     const pAct = pickPact(A.piv, salesmen);
     for (const s of salesmen) if (!pAct[s]) w.push(`Salesman "${s}" belum ada di pivot OLAP SALES (anggap ACT 0)`);
     if (!A.ob.cur) throw new Error('Sheet OLAP SALES: pivot per outlet (bulan ini) tidak ketemu');
@@ -707,14 +709,14 @@ export function parseAll(wb, metaIn = {}) {
     const period = A.ob.cur.p || parsePeriod(A.ob.cur.period);
     if (!period) w.push('Periode bulan berjalan tidak terbaca, dipakai bulan dari tanggal hari ini');
     const jksRows = readJks(gj, hj, salesmen);
-    if (!jksRows.length) throw new Error('Sheet JKS SALESMAN: tidak ada toko milik salesman Arjuna');
+    if (!jksRows.length) throw new Error('Sheet JKS SALESMAN: tidak ada toko milik salesman ' + label + '');
     if (hj.idx['CC5'] === undefined) w.push('Sheet JKS SALESMAN: kolom CC5 tidak ada, ukuran toko (SMALL/MEDIUM/BIG/SUPERBIG) kosong');
-    const mine = (r) => teamOf(r.name) === 'arjuna'; // CA/ACT hanya dari penjualan salesman tim ini
+    const mine = (r) => teamOf(r.name) === team; // CA/ACT hanya dari penjualan salesman tim ini
     const tm = pickTargets(milestone, salesmen, w);
     const principals = [...new Set([...A.piv.principals, ...Object.values(tm).flatMap((o) => Object.keys(o).filter((k) => k !== 'total' && o[k] > 0))])];
     const octMap = sumById(A.rows.cur, mine);
-    out.arjuna = assemble({
-      team: 'arjuna',
+    out[team] = assemble({
+      team,
       salesmen,
       targets: { milestone: tm, bti: bti ? pickTargets(bti, salesmen, w) : null },
       pAct,
@@ -731,12 +733,16 @@ export function parseAll(wb, metaIn = {}) {
         l3m: AC?.l3m ? [{ cols: AC.l3m.cols, rows: AC.l3m.rows.filter(mine) }] : [],
       },
       warnings: w,
-      meta: teamMeta(period, A.region, fileName, uploadedAt, { teamLabel: 'Arjuna' }),
+      meta: teamMeta(period, A.region, fileName, uploadedAt, { teamLabel: label }),
     });
-    attachDap(out.arjuna, 'arjuna', octMap, null);
-  } catch (e) {
-    top.push('Tim Arjuna dilewati: ' + (e.message || e));
-  }
+    attachDap(out[team], team, octMap, null);
+    } catch (e) {
+      reasons[team] = e.message || String(e);
+    }
+  };
+  readNew('arjuna', 'Arjuna');
+  if (!sh.bima) readNew('bima', 'Bima'); // tanpa sheet BIMA (format lama) tim Bima dibaca dengan pembaca yang sama
+  for (const [t, m] of Object.entries(reasons)) if (names[t].length) top.push(`Tim ${t === 'bima' ? 'Bima' : 'Arjuna'} dilewati: ${m}`);
 
   // ===== BIMA =====
   if (sh.bima) {
@@ -841,7 +847,7 @@ export function parseAll(wb, metaIn = {}) {
     }
   }
 
-  if (!out.arjuna && !out.bima) throw new Error(top.join(' | ') || 'File tidak berisi data tim yang dikenali');
+  if (!out.arjuna && !out.bima) throw new Error(Object.entries(reasons).map(([t, m]) => `Tim ${t === 'bima' ? 'Bima' : 'Arjuna'}: ${m}`).join(' | ') + (top.length ? ' | ' + top.join(' | ') : '') || 'File tidak berisi data tim yang dikenali');
   return out;
 }
 

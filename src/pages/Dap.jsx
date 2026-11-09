@@ -26,7 +26,7 @@ export function defaultDapDate(time, now = new Date()) {
 export function Cell({ v, edited, num, jt, dec, onCommit, onReset, cls, title }) {
   const [on, setOn] = useState(false);
   const commit = (raw) => { setOn(false); const t = String(raw).trim(); if (num) { const n = jt ? parseFloat(t.replace(',', '.')) * 1e6 : parseFloat(t.replace(/\./g, '').replace(',', '.')); if (Number.isFinite(n)) onCommit(dec ? Math.round(n * 10) / 10 : Math.round(n)); } else onCommit(t); };
-  if (on) return <td className={cls}><input className="dcell-in" autoFocus defaultValue={num ? (jt ? String(v) : String(v).replace(/[^\d-]/g, '')) : v} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setOn(false); }} /></td>;
+  if (on) return <td className={cls}><input className="dcell-in" autoFocus defaultValue={num ? (jt ? String(v) : dec ? String(v).replace(/[^\d,-]/g, '') : String(v).replace(/[^\d-]/g, '')) : v} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setOn(false); }} /></td>;
   return <td className={cls} title={title}><span className={'dcell' + (edited ? ' chg' : '')} onClick={() => setOn(true)}>{v === '' ? '\u00a0\u00a0\u00a0' : v}</span>{edited && <button className="rst" title="Kembalikan ke suggest" onClick={onReset}>↺</button>}</td>;
 }
 

@@ -10,7 +10,7 @@ export const TEAMS = [
 ];
 export const depotLabel = (id) => DEPOTS.find((d) => d.id === id)?.label || id;
 export const teamLabel = (id) => TEAMS.find((t) => t.id === id)?.label || id;
-export const SLOTS = ['main', 'sku', 'val', 'prog', 'promo', 'rules', 'progcat', 'itg', 'sodo', 'ctarget', 'itgcfg', 'market'];
+export const SLOTS = ['main', 'sku', 'val', 'prog', 'promo', 'rules', 'progcat', 'itg', 'sodo', 'ctarget', 'itgcfg', 'market', 'itgscup', 'scuphist'];
 
 const DB = 'sales-monitor';
 function idb() {

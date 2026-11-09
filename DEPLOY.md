@@ -52,3 +52,13 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Jelajah, Kategori fokus:** pilih kategori fokus lewat pencarian di panel Cek Cepat, lalu pakai sebagai **Kolom** (ACT, % Ach, L3M per kategori), **Filter**, atau **Baris**.
 - **Market Productivity, GreenStore dan MSS per toko:** filter **Hari JKS** dan **Pekan JKS** (1&3, 2&4, mingguan), plus kolom Hari JKS / Pekan JKS.
 - Pemilih (SKU / kategori / principal) tidak lagi membuat tombol di bawahnya melompat saat diklik.
+
+## Update 5 (9 Nov 2026, malam): tim Bima dan ITG Supercup
+- **Data utama tim Bima terbaca tanpa sheet "BIMA".** Satu pembaca format baru (TGT, OLAP SALES 1, OLAP FOCUS CATEGORY, LAB, JKS SALESMAN, DAP TGT PER TOKO) sekarang dipakai untuk tim mana pun; tim Bima = salesman dengan Tipe Sales Bima / Yudistira di JKS. Sheet "BIMA" format lama tetap terbaca sebagai cadangan. Kalau sheet TGT tidak memuat salesman tim itu, target diambil dari kolom TGT di sheet LAB (muncul sebagai peringatan). Pesan error kini menyebut alasan per tim, bukan hanya tim Arjuna.
+- **ITG Supercup** (menu ITG > ITG Supercup): slot upload baru **Target ITG Supercup** (Excel target Supercup, kolom dikenali dari judul). Outlet dicocokkan ke JKS tim lewat **ID toko** (bukan nama depo), jadi satu file region boleh di-upload di setiap depo.
+  - Target per bulan dalam ctn; Actual = qty (ctn) semua SKU principal GBS dari file Qty per SKU.
+  - Reward bulanan 0,75% x target bulan jika >= 100%; quartal 0,5% x target quartal (jumlah tiga bulan) jika >= 100%; big cup 1% x omset SKU big cup (berdiri sendiri). Persentase, principal, dan daftar kode SKU big cup bisa diubah di "Pengaturan program".
+  - Rupiah = ctn x harga per ctn (omset / qty bulan itu per outlet; outlet tanpa pembelian memakai rata-rata seluruh outlet tim).
+  - Angka bulanan disimpan tiap upload (slot riwayat) supaya quartal bisa dijumlah walau file hanya memuat bulan berjalan dan bulan lalu.
+  - Bulan yang tidak ada di file target (mis. Oktober) dianggap sama dengan bulan pertama (bertanda ~, bisa diedit atau dikosongkan).
+  - Bisa edit target, actual, dan reward per outlet; filter salesman, hari JKS, status; cetak A4 portrait / landscape.

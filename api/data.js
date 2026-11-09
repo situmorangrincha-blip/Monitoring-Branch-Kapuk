@@ -5,7 +5,7 @@ import { put, list, del } from '@vercel/blob';
 const PREFIX = 'sales-data/';
 const TEAMS = ['arjuna', 'bima'];
 const DEPOTS = ['kebayoran', 'kapuk'];
-const SLOTS = ['main', 'sku', 'val', 'prog', 'promo', 'rules', 'progcat', 'itg', 'sodo', 'ctarget', 'itgcfg', 'market'];
+const SLOTS = ['main', 'sku', 'val', 'prog', 'promo', 'rules', 'progcat', 'itg', 'sodo', 'ctarget', 'itgcfg', 'market', 'itgscup', 'scuphist'];
 
 export const config = { api: { bodyParser: { sizeLimit: '4.4mb' } } };
 
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { blobs } = await list({ prefix: PREFIX });
       const mine = blobs.map((b) => ({ b, c: classify(b.pathname) })).filter((x) => x.c && x.c.depot === depot);
-      const out = { main: null, sku: null, val: null, prog: null, promo: null, rules: null, progcat: null, itg: null, sodo: null, ctarget: null, itgcfg: null, market: null, skudb: null };
+      const out = { main: null, sku: null, val: null, prog: null, promo: null, rules: null, progcat: null, itg: null, sodo: null, ctarget: null, itgcfg: null, market: null, itgscup: null, scuphist: null, skudb: null };
       for (const slot of [...SLOTS, 'skudb']) {
         const cands = mine.filter((x) => x.c.slot === slot && (slot === 'skudb' || x.c.team === team));
         if (!cands.length) continue;

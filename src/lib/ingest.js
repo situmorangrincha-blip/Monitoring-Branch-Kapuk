@@ -5,6 +5,7 @@ import { parseProgCat } from './progcat.js';
 import { parseItg } from './itg.js';
 import { parseItg2 } from './itg2.js';
 import { parseMarket } from './market.js';
+import { parseScup } from './scup.js';
 import { packBlocks, parseSkuBlocks } from './skuBlocks.js';
 import * as XLSX from 'xlsx';
 import { parseCTarget } from './ctarget.js';
@@ -19,6 +20,7 @@ export const SLOT_INFO = {
   rules: { label: 'Aturan salesman', hint: 'Pindahkan toko ke salesman lain' },
   progcat: { label: 'Program (Excel standar)', hint: 'Excel standar program (sheet PROGRAM, STRATA, PESERTA). Toko dicocokkan otomatis dari channel dan ukuran di JKS' },
   itg: { label: 'Target ITG', hint: 'Excel ITG: Nama Salesman, ID Pelanggan, Class, Target <bulan> (2 bulan ganjil-genap), Actual dan Reward (kolom Reward menjadi reward di web)' },
+  itgscup: { label: 'Target ITG Supercup', hint: 'Excel target Supercup: Id Pelanggan, Nama Pelanggan, Target per bulan (ctn) di bawah judul grup TARGET, riwayat bulanan. Outlet dicocokkan ke JKS lewat ID toko' },
   market: { label: 'Market Productivity', hint: 'Excel dengan sheet ringkasan EC dan AC per salesman, OLAP EC dan AC harian, dan OLAP GreenStore / MSS / PICOS. Sheet dikenali dari isinya' },
   prog: { label: 'GreenStore / MSS', hint: 'Target, Actual per salesman atau toko' },
   skudb: { label: 'Database SKU', hint: 'Kode SKU + nama SKU (+ brand/kategori). Per depo, jarang diganti' },
@@ -387,13 +389,14 @@ const withBlocks = (orig, kind) => (wb, o) => {
   res.data.blocks = packBlocks(blk);
   return res;
 };
+const parseScupSlot = (wb, o) => { const p = parseScup(wb, o); return { data: { ...p, uploadedAt: new Date().toISOString() }, info: { sheets: [{ sheet: p.meta.sheet, rows: p.items.length, cols: `${p.items.length} outlet, target ${p.months.map((m) => m.label).join(' + ')}` }] } }; };
 const parseMarketSlot = (wb, o) => {
   const m = parseMarket(wb);
   if (!m.salesman.length && !m.gs.stores.length && !m.mss.stores.length) throw new Error('Isi Market Productivity tidak dikenali (butuh NAMA SALESMAN dengan EFFECTIVE CALL / ACTUAL CALL, atau tabel GreenStore / MSS).');
   return { data: { ...m, fileName: o.fileName, uploadedAt: new Date().toISOString() }, info: { sheets: [{ sheet: 'Market Productivity', rows: m.salesman.length, cols: `EC/AC ${m.salesman.length} salesman, GreenStore ${m.gs.stores.length} toko, MSS ${m.mss.stores.length} toko` }] } };
 };
 const parseItgSlot = (wb, o) => { const p = parseItg2(wb, o); return { data: { ...p, fileName: o.fileName, uploadedAt: new Date().toISOString() }, info: { sheets: [{ sheet: p.meta.sheet, rows: p.items.length, cols: `${p.items.length} toko${p.meta.rewardCol ? ', kolom Reward ada' : ', kolom Reward tidak ada'}` }] } }; };
-export const PARSERS = { ctarget: (wb, o) => parseCTarget(wb, o), progcat: (wb, o) => parseProgCat(wb, o), itg: parseItgSlot, market: parseMarketSlot, main: parseMain, sku: withBlocks(parseSku, 'sku'), val: withBlocks(parseVal, 'val'), prog: parseProg, skudb: parseSkuDb };
+export const PARSERS = { ctarget: (wb, o) => parseCTarget(wb, o), progcat: (wb, o) => parseProgCat(wb, o), itg: parseItgSlot, market: parseMarketSlot, itgscup: parseScupSlot, main: parseMain, sku: withBlocks(parseSku, 'sku'), val: withBlocks(parseVal, 'val'), prog: parseProg, skudb: parseSkuDb };
 
 // ====================== GABUNG SLOT -> data siap pakai ======================
 const akey = (x) => String(x ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -448,6 +451,8 @@ export function buildData(slots, depot, team) {
   d.itgList = slots.itg || null;
   d.itg2 = slots.itg?.v2 ? slots.itg : null;
   d.market = slots.market || null;
+  d.scup = slots.itgscup || null;
+  d.scuphist = slots.scuphist || null;
   d.blocks = { om: slots.val?.blocks || null, qt: slots.sku?.blocks || null };
   d.ctarget = slots.ctarget || null;
   d.itgcfg = slots.itgcfg || null;
