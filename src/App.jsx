@@ -6,7 +6,7 @@ import Mascot from './components/Mascot.jsx';
 import { themeVars } from './lib/theme.js';
 import MusicDock from './components/MusicDock.jsx';
 import { buildData } from './lib/ingest.js';
-import { DEPOTS, clearAuth, depotLabel, loadAll, probe, saveSlot, setAuth, teamLabel } from './lib/store.js';
+import { DEPOTS, TEAMS, clearAuth, depotLabel, loadAll, probe, saveSlot, setAuth, teamLabel } from './lib/store.js';
 import UploadModal from './components/UploadModal.jsx';
 import StoreModal from './components/StoreModal.jsx';
 import { DepotPick, SectionPick, TeamPick } from './components/Gate.jsx';
@@ -199,7 +199,7 @@ export default function App() {
     sales: <Salesman {...common} sal={sal} setSal={setSal} onStore={setStore} />,
     chart: <Charts {...common} mode={mode} setMode={setMode} sub={subs.chart} setSub={setSub} sal={sal} setSal={setSal} snapping={snapping} snapBg={null} cmpDim={cmpDim} setCmpDim={setCmpDim} />,
     rapot: <Rapot data={data} time={time} mode={effMode} depot={depot} team={team} />,
-    scup: data.scup ? <ItgScup data={data} depot={depot} team={team} onSaveHist={saveScupHist} /> : <Panel title="ITG Supercup"><div className="mut" style={{ marginBottom: 8 }}>Belum ada file target ITG Supercup untuk tim ini. Upload Excel target (Id Pelanggan, Target per bulan dalam ctn).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Target ITG Supercup</button></Panel>,
+    scup: data.scup ? <ItgScup data={data} depot={depot} team={team} onSaveHist={saveScupHist} teams={TEAMS} loadCatalog={async (t) => { try { const o = await loadAll(storeMode, depot, t); return o?.progcat || null; } catch { return null; } }} /> : <Panel title="ITG Supercup"><div className="mut" style={{ marginBottom: 8 }}>Belum ada file target ITG Supercup untuk tim ini. Upload Excel target (Id Pelanggan, Target per bulan dalam ctn).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Target ITG Supercup</button></Panel>,
     market: <Market data={data} pv={{ market: data.market }} />,
     skurank: <SkuRank data={data} pv={{ sku: skuView(data.blocks) }} time={time} />,
     itg: data.itg2 ? <ItgV2 key={(data.itg2.fileName || 'itg') + depot + team} demo={buildItgDemo(data)} depot={depot} team={team} /> : <Panel title="ITG"><div className="mut" style={{ marginBottom: 8 }}>Belum ada Excel ITG untuk tim ini (format baru: Target per bulan, Actual, Reward).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Excel ITG</button></Panel>,

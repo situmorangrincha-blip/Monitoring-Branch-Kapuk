@@ -88,3 +88,11 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Tetap per toko:** angka **Benefit toko** yang diketik, kolom **Pengambilan**, serta semua angka hitungan (target, actual, reward, histori, rekomendasi).
 - **Khusus toko ini** membuat perubahan baris hanya untuk toko itu; **Kembali ke pengaturan umum** menghapus perubahan khusus itu (benefit dan pengambilan tetap); **Jadikan semua toko seperti ini** juga membawa isi tabel program toko itu ke semua toko. Data lama yang sudah lu ubah di satu toko ikut terbaca dan terbawa.
 - Baris dikenali dari isinya (kode program, min order, satuan, diskon), bukan urutan, jadi "sembunyikan baris ini" tepat sasaran di toko mana pun. Template tersimpan di browser per depo x tim bersama pengaturan lain.
+
+## Update 10 (10 Nov 2026): kontrak ITG Supercup per outlet
+- **Halaman ITG Supercup punya dua tab: Tabel dan Kontrak.** Tab Kontrak membuat kontrak per outlet dengan tampilan edit dan template yang sama seperti kontrak ITG Arjuna: kartu pengaturan di atas kertas, bar **Pengaturan umum / Khusus toko ini**, tombol **Jadikan semua toko seperti ini**, kertas yang bisa diklik dan diedit, serta PDF per outlet atau gabungan.
+- **Bagian Supercup di kertas** (menggantikan tabel OFF): target dan actual per bulan (ctn), persen, gap, benefit (0,75% / 0,5% / 1%), dan **reward potensi** untuk tiap bulan, quartal, dan big cup, plus Total Benefit ITG Supercup. Target dan actual yang diedit di kertas ikut berubah di tab Tabel dan sebaliknya.
+- **Tabel program ON/OFF faktur dari katalog**, sama dengan Arjuna: pilih program dengan pencarian, beberapa tabel, template baris untuk semua outlet (sembunyikan, tambah baris, ubah teks, benefit toko), Total Benefit ON/OFF Faktur dan **Estimasi total benefit program** = Supercup + program.
+- **Pilihan tim sumber katalog**: centang katalog program dari tim mana yang dipakai (tim ini dan/atau tim lain di depo yang sama; katalog tim lain terbaca kalau sudah di-upload di tim itu). Outlet yang ada di Excel Supercup dianggap peserta ITG.
+- Pengaturan dan template kontrak Supercup tersimpan di browser per depo x tim, terpisah dari ITG Arjuna.
+- Komponen tabel program (tampilan dan pengaturan) kini dipakai bersama oleh kontrak Arjuna dan Supercup.

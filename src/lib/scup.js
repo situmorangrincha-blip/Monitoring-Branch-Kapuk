@@ -135,21 +135,24 @@ export function computeScup({ parsed, data, cfg, hist, edits = {} }) {
       const pct = T > 0 && A != null ? A / T : null;
       const ok = pct != null && pct >= 1;
       const rAuto = ok && price ? (cfg.r1 / 100) * T * price : 0;
-      mo[k] = { T, Tauto, assumed: !inFile, A, Aauto, pct, price, ok, future, miss, reward: e['R:' + k] ?? rAuto, rAuto, big: h?.big || 0, om: h?.om || 0, ctn: h?.ctn || 0 };
+      mo[k] = { T, Tauto, assumed: !inFile, A, Aauto, pct, price, ok, future, miss, potential: price ? (cfg.r1 / 100) * T * price : null, reward: e['R:' + k] ?? rAuto, rAuto, big: h?.big || 0, om: h?.om || 0, ctn: h?.ctn || 0 };
     }
     const TQ = qMonths.reduce((a, k) => a + (mo[k].T || 0), 0);
     const AQ = qMonths.reduce((a, k) => a + (mo[k].A || 0), 0);
     const omQ = qMonths.reduce((a, k) => a + mo[k].om, 0), ctnQ = qMonths.reduce((a, k) => a + mo[k].ctn, 0);
     const priceQ = ctnQ > 0 && omQ > 0 ? omQ / ctnQ : avgQ;
+    // bulan yang belum punya harga (mis. bulan depan) memakai harga rata-rata quartal supaya potensi reward tetap tampil
+    for (const k of qMonths) if (mo[k].price == null && priceQ) { mo[k].potential = (cfg.r1 / 100) * mo[k].T * priceQ; mo[k].priceFb = true; }
     const pctQ = TQ > 0 ? AQ / TQ : null;
     const okQ = pctQ != null && pctQ >= 1;
     const qDone = qMonths.every((k) => k <= curKey);
     const rQauto = okQ && priceQ ? (cfg.r2 / 100) * TQ * priceQ : 0;
+    const potQ = priceQ ? (cfg.r2 / 100) * TQ * priceQ : null;
     const bigOm = qMonths.reduce((a, k) => a + mo[k].big, 0);
     const rBauto = bigOm > 0 ? (cfg.r3 / 100) * bigOm : 0;
     const rQ = e.RQ ?? rQauto, rB = e.RB ?? rBauto;
     const total = qMonths.reduce((a, k) => a + (mo[k].reward || 0), 0) + rQ + rB;
-    rows.push({ id: it.id, name: st.name || it.name, sales: st.sales || '-', hk: st.hk || '', depo: it.depo, mo, TQ, AQ, pctQ, okQ, qDone, priceQ, rQ, rQauto, bigOm, rB, rBauto, total, h: it.h, ed: e });
+    rows.push({ id: it.id, name: st.name || it.name, sales: st.sales || '-', hk: st.hk || '', depo: it.depo, mo, TQ, AQ, pctQ, okQ, qDone, priceQ, potQ, rQ, rQauto, bigOm, rB, rBauto, total, h: it.h, ed: e });
   }
   return { rows, qMonths, curKey, first, outside, nFile: parsed.items.length };
 }

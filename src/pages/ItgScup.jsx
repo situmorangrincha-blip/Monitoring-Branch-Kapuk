@@ -5,6 +5,7 @@ import { Cell } from './Dap.jsx';
 import { DEFAULT_SCUP, computeScup, keyLabel, mergeHist, scupMonthly } from '../lib/scup.js';
 import { parseRoute, weekdayName } from '../lib/calc.js';
 import { fmtMoney, useUnit } from '../lib/unit.js';
+import ScupContractPage from './ItgScupContract.jsx';
 
 const ls = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const sv = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* abaikan */ } };
@@ -13,7 +14,7 @@ const pf = (v) => (v == null || !Number.isFinite(v) ? '-' : Math.round(v * 100) 
 const tone = (v) => (v == null ? '' : v >= 1 ? 'ok' : v >= 0.8 ? 'warn' : 'neg');
 
 // ITG Supercup: target ctn per outlet, actual = penjualan principal GBS, reward bulanan / quartal / big cup
-export default function ItgScup({ data, depot, team, onSaveHist }) {
+export default function ItgScup({ data, depot, team, onSaveHist, teams = [], loadCatalog }) {
   const unit = useUnit();
   const parsed = data.scup;
   const hist = data.scuphist || null;
@@ -59,8 +60,10 @@ export default function ItgScup({ data, depot, team, onSaveHist }) {
   const on = (k) => gShow[k] !== false && !(k === 'riwayat' && !gShow.riwayat);
   const num = (v, scale = 1) => (v == null ? '' : v);
 
+  const tab = view.tab === 'kontrak' ? 'kontrak' : 'tabel';
   return (
     <>
+      <div className="iv noprint" style={{ marginBottom: 6 }}><div className="ctl" style={{ margin: 0 }}><div className="seg">{[['tabel', 'Tabel'], ['kontrak', 'Kontrak']].map(([v, l]) => <button key={v} className={tab === v ? 'on' : ''} onClick={() => setV({ tab: v })}>{l}</button>)}</div><span className="mut" style={{ fontSize: 12 }}>{tab === 'kontrak' ? 'Kontrak per outlet: program Supercup + tabel program ON faktur dari katalog, dengan template untuk semua outlet.' : 'Tabel semua outlet.'}</span></div></div>
       <style>{`@media print { @page { size: A4 ${view.orient}; margin: 8mm; } }`}</style>
       <Panel title={`ITG SUPERCUP · ${keyLabel(C.qMonths[0])} – ${keyLabel(C.qMonths[2])}`} right={`${C.rows.length} outlet di tim${C.outside ? ` · ${C.outside} outlet di file bukan milik tim ini` : ''}`}>
         <div className="kpis" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))' }}>
@@ -103,7 +106,7 @@ export default function ItgScup({ data, depot, team, onSaveHist }) {
         <div className="mut" style={{ fontSize: 11.5, marginTop: 4 }}>Klik angka Target, Actual, atau Reward untuk mengubahnya (oranye = diubah, ↺ = kembali). × menyembunyikan outlet.</div>
       </div>
 
-      <div className="dpaper">
+      {tab === 'kontrak' ? <ScupContractPage data={data} parsed={parsed} depot={depot} team={team} cfg={cfg} C={C} rows={rows} unit={unit} setE={setE} teams={teams} loadCatalog={loadCatalog} orient={view.orient} /> : <div className="dpaper">
         <div className="dph"><span>ITG SUPERCUP · {data.meta.teamLabel?.toUpperCase()}</span><span>{keyLabel(C.qMonths[0])} – {keyLabel(C.qMonths[2])} · ctn</span></div>
         <table className="dp">
           <thead>
@@ -145,7 +148,7 @@ export default function ItgScup({ data, depot, team, onSaveHist }) {
           )}
         </table>
         <div className="mut" style={{ fontSize: 11, marginTop: 6 }}>* quartal belum berakhir: persentase masih progres. Actual bulan yang sudah lewat diambil dari riwayat yang tersimpan tiap upload.</div>
-      </div>
+      </div>}
     </>
   );
 }
