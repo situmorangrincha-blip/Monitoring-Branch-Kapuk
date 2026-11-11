@@ -267,3 +267,7 @@ html[data-anim='off'] .ws-main, html[data-anim='off'] .ws-pv { transition: none;
 .bd-cc em { font-style: normal; font-size: 9.5px; color: var(--mute); }
 .bd-cc span { font-size: 9.5px; color: var(--mute); }
 
+
+/* kartu section Discuss with GERY */
+.sec.gery { background: linear-gradient(135deg, var(--ac-soft), #fff); border-color: var(--ac-d); box-shadow: 0 8px 26px color-mix(in srgb, var(--ac-d) 22%, transparent); }
+.sec.gery .sectitle { color: var(--ac-d); }

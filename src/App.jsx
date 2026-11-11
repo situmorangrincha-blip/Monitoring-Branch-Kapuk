@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { derive, setLabels, timeInfo } from './lib/calc.js';
 import { music, sfx } from './lib/audio.js';
 import Backdrop from './components/Backdrop.jsx';
@@ -26,6 +26,7 @@ import Market from './pages/Market.jsx';
 import ViewPrefs from './components/ViewPrefs.jsx';
 import DapEditor from './pages/DapEditor.jsx';
 import ItgScup from './pages/ItgScup.jsx';
+const Gery = lazy(() => import('./pages/Gery.jsx'));
 import Board from './components/Board.jsx';
 import SkuRank from './pages/SkuRank.jsx';
 import ItgV2 from './pages/ItgV2.jsx';
@@ -42,6 +43,7 @@ const PAGES = [
   { id: 'explore', label: 'Jelajah' },
   { id: 'dap', label: 'DAP' },
   { id: 'scup', label: 'ITG Supercup' },
+  { id: 'gery', label: 'Discuss with GERY' },
   { id: 'rapot', label: 'Rapot' },
   { id: 'perf', label: 'Performa' },
   { id: 'pareto', label: 'Pareto & CA' },
@@ -57,6 +59,7 @@ const NAV = {
   sodo: ['sodo'],
   market: ['market'],
   skurank: ['skurank'],
+  gery: ['gery'],
 };
 const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const fmtUp = (iso) => { try { return new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
@@ -198,6 +201,7 @@ export default function App() {
     pareto: <Pareto {...common} sub={subs.pareto} setSub={setSub} sal={sal} setSal={setSal} onStore={setStore} />,
     sales: <Salesman {...common} sal={sal} setSal={setSal} onStore={setStore} />,
     chart: <Charts {...common} mode={mode} setMode={setMode} sub={subs.chart} setSub={setSub} sal={sal} setSal={setSal} snapping={snapping} snapBg={null} cmpDim={cmpDim} setCmpDim={setCmpDim} />,
+    gery: <Suspense fallback={<Panel title="Discuss with GERY"><div className="mut">Memuat GERY…</div></Panel>}><Gery data={data} time={time} mode={effMode} depot={depot} team={team} onOpen={(sec, pg) => { setSection(sec); setPage(pg); }} /></Suspense>,
     rapot: <Rapot data={data} time={time} mode={effMode} depot={depot} team={team} />,
     scup: data.scup ? <ItgScup data={data} depot={depot} team={team} onSaveHist={saveScupHist} teams={TEAMS} loadCatalog={async (t) => { try { const o = await loadAll(storeMode, depot, t); return o?.progcat || null; } catch { return null; } }} /> : <Panel title="ITG Supercup"><div className="mut" style={{ marginBottom: 8 }}>Belum ada file target ITG Supercup untuk tim ini. Upload Excel target (Id Pelanggan, Target per bulan dalam ctn).</div><button className="btn pri" onClick={() => setUp(true)}>Upload Target ITG Supercup</button></Panel>,
     market: <Market data={data} pv={{ market: data.market }} />,
