@@ -673,4 +673,4 @@ export default function ItgV2({ demo, depot = '', team = '' }) {
   );
 }
 
-export { Ed, ProgTable, ProgTablesView, ProgTablesSettings, numOnly, lsGet, lsSet, DEFAULT_TABLES };
+export { Ed, ProgTable, ProgTablesView, ProgTablesSettings, nowTime, numOnly, lsGet, lsSet, DEFAULT_TABLES };
