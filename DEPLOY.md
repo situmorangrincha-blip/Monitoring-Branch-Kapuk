@@ -96,3 +96,13 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Pilihan tim sumber katalog**: centang katalog program dari tim mana yang dipakai (tim ini dan/atau tim lain di depo yang sama; katalog tim lain terbaca kalau sudah di-upload di tim itu). Outlet yang ada di Excel Supercup dianggap peserta ITG.
 - Pengaturan dan template kontrak Supercup tersimpan di browser per depo x tim, terpisah dari ITG Arjuna.
 - Komponen tabel program (tampilan dan pengaturan) kini dipakai bersama oleh kontrak Arjuna dan Supercup.
+
+## Update 11 (11 Nov 2026): section "Discuss with GERY" (Studio 3D)
+- **Section baru di layar pilih section: "Discuss with GERY"** (kartu 07, bertanda "baru"). Pilih depo, pilih tim, lalu GERY (robot pemandu 3D) membahas data tim itu dengan data asli.
+- **Tiga topik:** ITG Supercup, ITG (Arjuna), dan Rapot. Topik yang datanya belum ada dinonaktifkan dengan keterangan (misalnya "Belum ada file Target ITG Supercup").
+- **Cara kerja:** GERY di tengah, enam panel data mengelilinginya. Tombol ›/‹ atau panah keyboard memindahkan fokus: GERY melompat, menoleh, menunjuk panel dengan garis cahaya, dan bubble menjelaskan angkanya plus saran. **Semua angka dan kalimat dihitung dari data lewat rumus, bukan ditulis AI.** Penjelasan AI belum diaktifkan.
+- **Interaktif:** seret GERY untuk memutar, klik GERY untuk menyapa, kepala mengikuti kursor, panel miring mengikuti kursor, ▶ Auto untuk presentasi otomatis, ⛶ layar penuh, "Anonimkan nama" untuk presentasi, tema Terang/Gelap.
+- **Tiga mode tampilan** (pilihan diingat per perangkat): Presentasi 3D (laptop), Standar (tanpa 3D, paling ringan), dan Ringan (HP/tab). Kalau WebGL tidak tersedia, otomatis memakai Standar; kalau perangkat lambat, kualitas diturunkan otomatis (label "hemat").
+- **"Buka detail"** di tiap panel membuka halaman aslinya (ITG, ITG Supercup, atau Rapot).
+- **Dependensi baru: `three` 0.128.0** (package.json dan package-lock.json ikut berubah; Vercel memasangnya otomatis). Kode 3D dimuat hanya saat section ini dibuka, jadi halaman lain tidak bertambah berat.
+- Angka Supercup dan ITG memakai pengaturan yang sama dengan halaman aslinya (pengaturan program Supercup, pengaturan ITG, dan edit angka di browser lu).
