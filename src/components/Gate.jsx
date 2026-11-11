@@ -33,8 +33,9 @@ export const SECTIONS = [
   { id: 'sodo', n: '04', title: 'Monitoring SO-DO', desc: 'SO vs STK, alasan belum terkirim, dan rekap.', live: true },
   { id: 'market', n: '05', title: 'Market Productivity', desc: 'EC, AC, GreenStore, MSS, dan PICOS per salesman dan toko.', live: true },
   { id: 'skurank', n: '06', title: 'Ranking SKU', desc: 'Peringkat SKU per salesman, channel, atau outlet dari omset dan qty.', live: true },
-  { id: 'rute', n: '07', title: 'Rute Kunjungan', desc: 'Peta dan penyusun rute kunjungan salesman.', url: 'https://mapsnyrinchamilenio.vercel.app/' },
-  { id: 'audit', n: '08', title: 'Audit Rute', desc: 'Temuan kejanggalan dari Report Route Feedback.', url: 'https://rutefeedback.vercel.app/' },
+  { id: 'gery', n: '07', title: 'Discuss with GERY', desc: 'Pemandu data 3D: GERY menjelaskan angka tim lu dan memberi saran.', live: true, badge: 'baru' },
+  { id: 'rute', n: '08', title: 'Rute Kunjungan', desc: 'Peta dan penyusun rute kunjungan salesman.', url: 'https://mapsnyrinchamilenio.vercel.app/' },
+  { id: 'audit', n: '09', title: 'Audit Rute', desc: 'Temuan kejanggalan dari Report Route Feedback.', url: 'https://rutefeedback.vercel.app/' },
 ];
 
 export function SectionPick({ depot, onPick, onBack }) {
@@ -43,9 +44,10 @@ export function SectionPick({ depot, onPick, onBack }) {
       <Head title={depotLabel(depot)} sub="Pilih section" />
       <div className="secgrid">
         {SECTIONS.map((s) => (
-          <button key={s.id} className="sec" disabled={!!s.soon} onClick={() => (s.url ? window.open(s.url, '_blank', 'noopener') : onPick(s.id, s.title))}>
+          <button key={s.id} className={'sec' + (s.id === 'gery' ? ' gery' : '')} disabled={!!s.soon} onClick={() => (s.url ? window.open(s.url, '_blank', 'noopener') : onPick(s.id, s.title))}>
             {s.url && <span className="secbadge ext">buka ↗</span>}
             {s.soon && <span className="secbadge">segera</span>}
+            {s.badge && <span className="secbadge">{s.badge}</span>}
             <div className="secnum">{s.n}</div>
             <div className="sectitle">{s.title}</div>
             <div className="secdesc">{s.desc}</div>
