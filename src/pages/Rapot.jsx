@@ -48,7 +48,7 @@ export default function Rapot({ data, time, mode, depot, team }) {
               {order.map((r) => (
                 <tr key={r.name}>
                   <td><span className={'rank' + (r.ranked ? '' : ' n')}>{r.ranked && r.rank ? r.rank : '–'}</span></td>
-                  <td className="l">{r.name}{!r.ranked && <span className="tag y" style={{ marginLeft: 6 }}>tidak diranking</span>}</td>
+                  <td className="l">{r.name}{!r.ranked && <span className="tag y" style={{ marginLeft: 6 }}>{r.kind === 'sak' ? 'SAK, tidak diranking' : r.kind === 'lain' ? 'di luar JKS, tidak diranking' : 'tidak diranking'}</span>}</td>
                   <td className="bc"><span className="barlbl"><span className="bar"><i className={bgc(r.total)} style={{ width: (r.total || 0) + '%' }} /></span><span className={'ach ' + tone(r.total)}>{r.total == null ? '-' : r.total.toFixed(1)}</span></span></td>
                   {IND.map((i) => <td key={i.id} className={tone(r.ind[i.id]?.score)}>{r.ind[i.id] ? Math.round(r.ind[i.id].score) : '–'}</td>)}
                   <td><button className="btn sm" onClick={() => pdf(r.name)}>PDF</button></td>
@@ -61,7 +61,7 @@ export default function Rapot({ data, time, mode, depot, team }) {
       </Panel>
 
       <div className="grid g2">
-        {order.map((r) => (
+        {order.filter((r) => !r.kind).map((r) => (
           <Panel key={r.name} title={r.name.toUpperCase()} right={r.total == null ? '-' : `${r.total.toFixed(1)} · ${grade(r.total)}${r.ranked && r.rank ? ` · #${r.rank} dari ${R.nRanked}` : ''}`}>
             <div className="mini">
               {IND.map((i) => { const x = r.ind[i.id]; return (

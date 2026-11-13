@@ -106,3 +106,26 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **"Buka detail"** di tiap panel membuka halaman aslinya (ITG, ITG Supercup, atau Rapot).
 - **Dependensi baru: `three` 0.128.0** (package.json dan package-lock.json ikut berubah; Vercel memasangnya otomatis). Kode 3D dimuat hanya saat section ini dibuka, jadi halaman lain tidak bertambah berat.
 - Angka Supercup dan ITG memakai pengaturan yang sama dengan halaman aslinya (pengaturan program Supercup, pengaturan ITG, dan edit angka di browser lu).
+
+## Update 12 (13 Nov 2026): Upload cerdas (banyak file sekaligus)
+- **Jendela Upload sekarang punya dua tab: "Upload cerdas (banyak file)" (tab pertama) dan "Per slot"** (cara lama, tidak berubah).
+- **Upload cerdas:** tarik atau pilih beberapa Excel sekaligus. Web membaca **isi** tiap file (nama sheet dan judul kolom), bukan nama file, lalu menebak jenis datanya: Data utama, Qty per SKU, Omset per SKU (termasuk export tiga blok), Market Productivity, Target ITG, Target ITG Supercup, Target kategori/principal, Database SKU, dan Program (Excel standar).
+- **Tabel pratinjau sebelum menyimpan:** nama file, jenis data terdeteksi (bisa diganti lewat dropdown), tingkat keyakinan (tinggi / sedang / rendah), ringkasan isi (jumlah toko, salesman, baris, periode), peringatan, dan keterangan kalau data yang ada akan ditimpa. File yang tidak dikenali ditandai "gagal" dengan penjelasan.
+- **Pengaman:** tidak ada yang tersimpan sebelum menekan Simpan; dua file untuk jenis data yang sama ditandai dan tombol Simpan menunggu salah satunya dilepas centangnya; peringatan kalau periode di dalam file berbeda dengan periode data; ada tombol **Batalkan upload ini** yang mengembalikan data yang tertimpa (berlaku selama jendela upload belum ditutup dan halaman belum dimuat ulang).
+- Semua file masuk ke depo dan tim yang sedang dibuka. Daftar peserta program dan aturan salesman tetap lewat tab "Per slot". File SO dan STK tetap diupload di section Monitoring SO-DO.
+
+## Update 12 (13 Nov 2026): Upload cerdas (banyak Excel sekaligus)
+- **Upload > tab "Upload cerdas (banyak file)"** (tab bawaan; tab "Per slot" yang lama tetap ada). Tarik beberapa Excel sekaligus: web membaca **isi** tiap file (nama sheet dan judul kolom, bukan nama file), menebak itu data apa, dan menampilkan tabel pratinjau: file, jenis data terdeteksi (bisa diganti lewat dropdown), tingkat keyakinan, ringkasan isi, dan peringatan.
+- **Dikenali:** Data utama (format baru dan lama), Qty per SKU, Omset per SKU (termasuk export tiga blok), Target ITG, Target ITG Supercup, Market Productivity, Target kategori / principal, Database SKU, dan Program (Excel standar). File yang tidak dikenali (misalnya SO / STK) ditandai gagal dengan petunjuk, dan jenisnya bisa dipilih manual.
+- **Aman:** tidak ada yang tersimpan sebelum menekan **Simpan**. Dua file untuk jenis data yang sama ditandai konflik dan harus dipilih salah satu. Peringatan muncul kalau periode di file berbeda dengan periode data. Data yang akan ditimpa ditandai "(menimpa)".
+- **Tombol "Batalkan upload ini"** mengembalikan data yang baru saja ditimpa (berlaku selama jendela upload belum ditutup dan halaman belum dimuat ulang).
+- Semua file masuk ke depo dan tim yang sedang dibuka. Daftar peserta program dan aturan salesman tetap lewat tab "Per slot".
+
+## Update 13 (13 Nov 2026): SAK, salesman pengganti, dan nama di luar JKS
+- **Halaman Upload > Per slot > Aturan salesman** kini punya dua bagian baru (tersimpan di slot yang sama dengan aturan pindah toko, per depo dan tim, dipakai bersama, dan otomatis berlaku di setiap upload berikutnya):
+  - **Nama SAK**: diisi bawaan Arjuna Kebayoran = Rincha, Bima Kebayoran = Dezzy, Arjuna Kapuk = Hanson, Bima Kapuk = Mohammad Zia; bisa diubah atau dikosongkan. Pencocokan lewat potongan nama, tanpa peduli huruf besar atau kecil.
+  - **Salesman pengganti**: nama lama di pivot atau TGT dikreditkan ke pengganti (omset dan target). Nama lama yang belum diatur muncul sebagai tombol di bawah daftar, tinggal klik lalu pilih pengganti dari salesman JKS.
+- **SAK**: omset atas nama SAK yang ada di pivot atau TGT tampil sebagai baris sendiri ("nama (SAK)", tanpa ranking) dan ikut grand total tim. Target SAK dari sheet TGT kalau ada barisnya; kalau tidak ada, targetnya sudah termasuk di total tim. SAK yang punya toko JKS dihitung seperti salesman lain.
+- **Nama lain di pivot yang tidak ada di JKS dan belum diatur** tidak lagi dibuang diam-diam: omsetnya masuk baris **"Lainnya (di luar JKS)"** (dengan peringatan), supaya total tim sama dengan total di pivot. Contoh di file Bima lu: Nur Syafaatun Rp 9,79 jt; di file Arjuna: Rossi Mustaqim Rp 28,18 jt.
+- **Rapot**: SAK dan "Lainnya" tampil di tabel tanpa ranking dan tanpa kartu penilaian; omsetnya tetap masuk total tim di Performa dan halaman lain.
+- Berlaku untuk format data utama baru (TGT, OLAP SALES, JKS, LAB). Setelah update, **upload ulang Data utama** sekali supaya baris di luar JKS ikut terbaca.

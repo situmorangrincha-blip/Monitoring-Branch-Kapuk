@@ -68,6 +68,13 @@ export function scoreSalesman(data, name, mode, time, W = DEFAULT_W) {
 export function rapotAll(data, mode, time, W = DEFAULT_W) {
   const ruled = new Set((data.rules?.items || []).map((r) => r.sales));
   const rows = data.salesmen.map((nm) => ({ ...scoreSalesman(data, nm, mode, time, W), ranked: !ruled.has(nm) }));
+  // SAK dan nama di luar JKS: tampil tanpa ranking, omsetnya tetap masuk total tim
+  const tgm = data.targets?.[mode] || data.targets?.milestone || {};
+  for (const e of data.extraSales || []) {
+    const t = (e.tgt?.[mode] || e.tgt?.milestone)?.total || 0, a = e.pAct?.total || 0;
+    rows.push({ name: e.kind === 'sak' ? `${e.name} (SAK)` : e.name, act: a, tgt: t, ind: {}, total: null, strong: [], weak: [], best: [], worst: [], ranked: false, rank: null, kind: e.kind, skipped: true });
+  }
+  void tgm;
   const rk = rows.filter((r) => r.ranked && r.total != null).sort((a, b) => b.total - a.total);
   rk.forEach((r, i) => { r.rank = i + 1; });
   return { rows, ranked: rk, nRanked: rk.length };

@@ -702,6 +702,10 @@ export function parseAll(wb, metaIn = {}) {
     if (!A.piv) throw new Error('Sheet OLAP SALES: pivot salesman x principal tidak ketemu');
     const salesmen = names[team];
     const pAct = pickPact(A.piv, salesmen);
+    const isTot = (k) => /^(GRAND)?TOTAL$/.test(norm(k));
+    const known = new Set(salesmen.map(norm));
+    const extraP = {}; for (const [k, v] of Object.entries(A.piv.pAct || {})) if (!known.has(norm(k)) && !isTot(k) && Math.abs(v?.total || 0) > 0) extraP[k] = v;
+    const extraT = {}; for (const [md, tt] of [['milestone', milestone], ['bti', bti]]) { if (!tt) continue; for (const [k, v] of Object.entries(tt)) if (!known.has(norm(k)) && !isTot(k) && Math.abs(v?.total || 0) > 0) (extraT[md] ||= {})[k] = v; }
     for (const s of salesmen) if (!pAct[s]) w.push(`Salesman "${s}" belum ada di pivot OLAP SALES (anggap ACT 0)`);
     if (!A.ob.cur) throw new Error('Sheet OLAP SALES: pivot per outlet (bulan ini) tidak ketemu');
     if (!A.ob.lm) w.push('Pivot bulan lalu per outlet tidak ketemu');
@@ -735,6 +739,7 @@ export function parseAll(wb, metaIn = {}) {
       warnings: w,
       meta: teamMeta(period, A.region, fileName, uploadedAt, { teamLabel: label }),
     });
+    out[team].extra = { pAct: extraP, tgt: extraT };
     attachDap(out[team], team, octMap, null);
     } catch (e) {
       reasons[team] = e.message || String(e);

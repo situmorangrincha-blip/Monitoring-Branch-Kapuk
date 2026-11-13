@@ -138,7 +138,10 @@ export function derive(data, mode, time) {
     };
   };
 
-  const sales = data.salesmen.map((name) => mk(name, tg[name], data.pAct[name], data.stores.filter((s) => s.sales === name)));
+  const sales0 = data.salesmen.map((name) => mk(name, tg[name], data.pAct[name], data.stores.filter((s) => s.sales === name)));
+  // SAK dan nama di luar JKS: baris sendiri (tanpa toko dan tanpa ranking), tetapi ikut grand total tim
+  const extra = (data.extraSales || []).map((e) => ({ ...mk(e.kind === 'sak' ? `${e.name} (SAK)` : e.name, e.tgt?.[mode] || e.tgt?.milestone || null, e.pAct, []), kind: e.kind, rank: null }));
+  const sales = [...sales0, ...extra];
   const sumPr = {};
   for (const p of principals) {
     const t = sum(sales, (x) => x.pr[p].tgt);
@@ -151,7 +154,7 @@ export function derive(data, mode, time) {
     { total: sum(sales, (x) => x.act), ...Object.fromEntries(principals.map((p) => [p, sumPr[p].act])) },
     data.stores
   );
-  const ranked = [...sales].sort((a, b) => b.acv - a.acv);
+  const ranked = [...sales0].sort((a, b) => b.acv - a.acv);
   ranked.forEach((s, i) => (s.rank = i + 1));
   return { sales, total, principals, mode };
 }

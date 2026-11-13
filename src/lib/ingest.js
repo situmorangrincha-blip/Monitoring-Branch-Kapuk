@@ -1,6 +1,6 @@
 // Ubah workbook per slot (main / sku / prog / skudb) jadi dataset. Peran sheet dikenali dari judul sheet.
 import { parseAll, parsePeriod, autoPareto, sizeOf } from './parse.js';
-import { applyRules, defaultRulesFor } from './rules.js';
+import { applyPeople, applyRules, defaultRulesFor } from './rules.js';
 import { parseProgCat } from './progcat.js';
 import { parseItg } from './itg.js';
 import { parseItg2 } from './itg2.js';
@@ -469,6 +469,7 @@ export function buildData(slots, depot, team) {
   d.rules = slots.rules || defaultRulesFor(depot, team);
   d.pAct = d.pAct; // dikloning di applyRules bila ada aturan
   applyRules(d, d.rules);
+  applyPeople(d, d.rules, depot, team);
   d.groups = {};
   for (const s of d.stores) if (s.grp) d.groups[s.sales] = s.grp;
   d.hasGroups = new Set(Object.values(d.groups)).size > 0;

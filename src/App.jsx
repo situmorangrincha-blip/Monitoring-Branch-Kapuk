@@ -264,10 +264,11 @@ export default function App() {
 
       {up && (
         <UploadModal
-          stores={data?.stores || []} slots={{ main: slots.main, sku: slots.sku, val: slots.val, market: slots.market, prog: slots.prog, promo: slots.promo, rules: slots.rules, progcat: slots.progcat, itg: slots.itg, ctarget: slots.ctarget, itgcfg: slots.itgcfg, skudb: slots.skudb }}
+          salesmen={data?.salesmen || []} extraNames={data?.extraNames || []} stores={data?.stores || []} slots={{ main: slots.main, sku: slots.sku, val: slots.val, market: slots.market, prog: slots.prog, promo: slots.promo, rules: slots.rules, progcat: slots.progcat, itg: slots.itg, ctarget: slots.ctarget, itgcfg: slots.itgcfg, itgscup: slots.itgscup, skudb: slots.skudb }}
           depot={depot} team={team} storeMode={storeMode} timeOv={timeOv} setTimeOv={setTimeOv} auto={autoTime} period={data?.meta.period}
           onClose={() => setUp(false)}
           onDone={(slot, d) => { setSlots((o) => ({ ...o, [slot]: d })); setUp(false); say(d ? 'Data tersimpan' : 'Slot dihapus'); }}
+          onBatch={(map) => { setSlots((o) => ({ ...o, ...map })); say('Data tersimpan'); }}
         />
       )}
       {warnOpen && data && (

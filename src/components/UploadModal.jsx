@@ -3,6 +3,7 @@ import { SLOT_INFO, uploadPeriod } from '../lib/ingest.js';
 import { FIELD_LABEL } from '../lib/table.js';
 import { deleteSlot, saveSlot } from '../lib/store.js';
 import { Panel } from './ui.jsx';
+import SmartUpload from './SmartUpload.jsx';
 import PromoPane from './PromoPane.jsx';
 import RulesPane from './RulesPane.jsx';
 import { summarize } from '../lib/progcat.js';
@@ -10,10 +11,11 @@ import { summarize } from '../lib/progcat.js';
 const MON = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const MAXMB = 80;
 const loadOv = () => { try { return JSON.parse(localStorage.getItem('sm_colmap') || '{}'); } catch { return {}; } };
-const fmtUp = (iso) => { try { return new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+const fmtUp = (iso) => { try { if (!iso || Number.isNaN(new Date(iso).getTime())) return ''; return new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 
 // Satu slot = satu file Excel kecil. Sheet dikenali dari JUDULNYA, kolom dari namanya (longgar); kalau meleset, atur sendiri di "Pemetaan kolom".
-export default function UploadModal({ stores, slots, depot, team, storeMode, timeOv, setTimeOv, auto, period, onClose, onDone }) {
+export default function UploadModal({ stores, slots, depot, team, storeMode, timeOv, setTimeOv, auto, period, onClose, onDone, onBatch, salesmen = [], extraNames = [] }) {
+  const [tab, setTab] = useState('smart');
   const [slot, setSlot] = useState('main');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
@@ -87,8 +89,10 @@ export default function UploadModal({ stores, slots, depot, team, storeMode, tim
 
   return (
     <div className="veil" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={tab === 'smart' ? { width: 'min(1040px, 100%)' } : undefined} onClick={(e) => e.stopPropagation()}>
         <Panel title="UPLOAD DATA" right={<button className="btn sm" onClick={onClose}>Tutup</button>}>
+          <div className="seg" style={{ marginBottom: 10 }}>{[['smart', 'Upload cerdas (banyak file)'], ['slot', 'Per slot']].map(([v, l]) => <button key={v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>{l}</button>)}</div>
+          {tab === 'smart' ? <SmartUpload slots={slots} depot={depot} team={team} storeMode={storeMode} onBatch={onBatch || (() => {})} /> : (<>
           <div className="mini" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', marginBottom: 10 }}>
             {['main', 'sku', 'val', 'market', 'itg', 'itgscup', 'ctarget', 'skudb', 'progcat', 'promo', 'rules'].map((s) => (
               <button key={s} className={'it' + (slot === s ? ' sel' : '')} style={{ textAlign: 'left', cursor: 'pointer', borderColor: slot === s ? 'var(--ac)' : undefined, background: slot === s ? 'var(--ac-soft)' : undefined }} onClick={() => { setSlot(s); setRes(null); setErr(''); }}>
@@ -99,7 +103,7 @@ export default function UploadModal({ stores, slots, depot, team, storeMode, tim
           </div>
           <div className="mut" style={{ marginBottom: 8, display: slot === 'rules' ? 'none' : undefined }}>{SLOT_INFO[slot].hint}. {slot === 'skudb' ? 'Dipakai bersama oleh kedua tim di depo ini.' : `Disimpan untuk depo & tim yang sedang dibuka.`}</div>
 
-          {slot === 'rules' && <RulesPane rules={slots.rules} stores={stores || []} depot={depot} team={team} storeMode={storeMode} onDone={onDone} setErr={setErr} />}
+          {slot === 'rules' && <RulesPane rules={slots.rules} stores={stores || []} depot={depot} team={team} storeMode={storeMode} onDone={onDone} setErr={setErr} salesmen={salesmen} extraNames={extraNames} />}
           {err && slot === 'rules' && <div className="warn err">{err}</div>}
           {slot === 'promo' && <PromoPane promo={slots.promo} stores={stores || []} depot={depot} team={team} storeMode={storeMode} onDone={onDone} setErr={setErr} onRedirect={(f) => { setSlot('progcat'); setErr(''); read(f, 'progcat'); }} />}
           {err && slot === 'promo' && <div className="warn err">{err}</div>}
@@ -212,6 +216,7 @@ export default function UploadModal({ stores, slots, depot, team, storeMode, tim
             </div>
           )}
           </div>
+          </>)}
         </Panel>
       </div>
     </div>
