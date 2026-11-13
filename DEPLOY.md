@@ -129,3 +129,11 @@ Datanya masih ada di Blob lama. Di project baru: Storage > **Connect existing st
 - **Nama lain di pivot yang tidak ada di JKS dan belum diatur** tidak lagi dibuang diam-diam: omsetnya masuk baris **"Lainnya (di luar JKS)"** (dengan peringatan), supaya total tim sama dengan total di pivot. Contoh di file Bima lu: Nur Syafaatun Rp 9,79 jt; di file Arjuna: Rossi Mustaqim Rp 28,18 jt.
 - **Rapot**: SAK dan "Lainnya" tampil di tabel tanpa ranking dan tanpa kartu penilaian; omsetnya tetap masuk total tim di Performa dan halaman lain.
 - Berlaku untuk format data utama baru (TGT, OLAP SALES, JKS, LAB). Setelah update, **upload ulang Data utama** sekali supaya baris di luar JKS ikut terbaca.
+
+## Update 14 (13 Nov 2026): Jelajah, filter capaian dan Export Excel
+- **Jelajah > Cek cepat > baris baru "Capaian"**: filter baris hasil berdasarkan
+  - **vs timegone**: Semua, Di bawah (capaian di bawah timegone), Sudah di atas.
+  - **vs L3M** dan **vs bulan lalu**: Semua, Tumbuh (>= 100%), Turun (< 100%). Memakai pembanding yang dipilih (Timegone sama atau Keseluruhan).
+  Berlaku di level apa pun yang dipilih di Baris (salesman, toko, channel, SKU, dan seterusnya). TOTAL dihitung ulang dari baris yang lolos filter. Baris tanpa target tidak ikut filter timegone, dan baris tanpa data bulan lalu / L3M tidak ikut filter growth. Filter ikut tersimpan di preset.
+- **Tombol "Export Excel"** di panel Hasil: mengunduh tampilan yang sedang terfilter (semua baris, tidak dibatasi 500 seperti di layar). Sheet "Jelajah" berisi tabel (angka asli, format juta atau Rp sesuai pilihan, % dengan format persen, filter otomatis di header), sheet "Filter" berisi depo, tim, periode, timegone, pembanding, dan semua filter yang aktif.
+- Perbaikan kecil: kolom **% Kontribusi** di level toko / salesman sebelumnya selalu 0%; sekarang dihitung terhadap total cakupan.

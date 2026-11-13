@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { ctargetIndex } from '../lib/ctarget.js';
 import { LABELS, focusCatsOf, focusMatches, fmt, pace, paceCls, parseRoute, status, weekdayName } from '../lib/calc.js';
 import FocusPicker from '../components/FocusPicker.jsx';
@@ -34,7 +35,7 @@ const MEAS = [
   { id: 'avgCa', label: 'ACT / CA', grp: 'Jangkauan', st: 1, sk: 1, kind: 'rp' },
   { id: 'share', label: '% Kontribusi', grp: 'Jangkauan', st: 1, sk: 1, kind: 'pct' },
 ];
-const DEFAULT = { rows: ['sales'], ms: ['act', 'tgt', 'ach', 'ca'], filters: [], basis: 'same', unit: 'jt', cov: 'all', who: 'ALL', grp: 'ALL', q: '', fok: [] };
+const DEFAULT = { rows: ['sales'], ms: ['act', 'tgt', 'ach', 'ca'], filters: [], basis: 'same', unit: 'jt', cov: 'all', who: 'ALL', grp: 'ALL', q: '', fok: [], fTg: 'all', fL3: 'all', fLm: 'all' };
 
 export default function Explore({ data, time, depot, team, mode = 'milestone', board }) {
   const ci = useMemo(() => ctargetIndex(data, mode), [data, mode]);
@@ -119,6 +120,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
       }
       groups = [...m.values()].map((g) => ({ ...g, ...storeMeasures(g.list, true) }));
       total = storeMeasures(stores, true);
+      groups.forEach((g) => { g.share = total.act ? g.act / total.act : 0; }); total.share = 1; // % kontribusi terhadap seluruh cakupan
     } else {
       // level SKU: tiap toko x SKU yang punya nilai/qty
       const subOk = data.subs.map((sb, i) => {
@@ -180,7 +182,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
           }
         }
         if (!hasSkuTgt && !ctUsed) { const pt = principalTgt(g); if (pt != null) { tgt = pt; tgtNote = true; } else tgt = 0; }
-        return { ...g, ...skuMeasures({ act: g.act, qty: g.qty, tgt, buyers: g.buyers.size, n, lm: g.lm, l3m: g.l3m }), tgtNote, hasT: tgt > 0 };
+        return { ...g, ...skuMeasures({ act: g.act, qty: g.qty, tgt, buyers: g.buyers.size, n, lm: g.lm, l3m: g.l3m }), tgtNote, hasT: tgt > 0, rlm: g.lm, rl3: g.l3m };
       });
       total = skuMeasures({ act: all.act, qty: all.qty, tgt: hasSkuTgt ? all.tgt : 0, buyers: all.buyers.size, n: all.n, lm: all.lm, l3m: all.l3m });
       total.hasT = hasSkuTgt && all.tgt > 0;
@@ -188,7 +190,28 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
       groups.forEach((g) => { g.share = tot ? g.act / tot : 0; });
       total.share = 1;
     }
-    return { groups, total, mkLabel, msAvail, nStores: stores.length };
+    // ---------- filter capaian: baris hasil yang di bawah / di atas timegone, tumbuh / turun vs L3M dan bulan lalu ----------
+    const nBefore = groups.length;
+    const useTg = st.fTg && st.fTg !== 'all';
+    const trendOk = !skuMode || !!data.hasSkuTrend;
+    const useL3 = st.fL3 && st.fL3 !== 'all' && trendOk;
+    const useLm = st.fLm && st.fLm !== 'all' && trendOk;
+    const filtOn = !!(useTg || useL3 || useLm);
+    if (filtOn) {
+      const okTg = (v) => v != null && (st.fTg === 'below' ? v < 1 : v >= 1);
+      const okGr = (f) => (v) => v != null && (f === 'down' ? v < 1 : v >= 1);
+      const okL3 = okGr(st.fL3), okLm = okGr(st.fLm);
+      groups = groups.filter((g) => (!useTg || okTg(g.vsTg)) && (!useL3 || okL3(g.vsL3m)) && (!useLm || okLm(g.vsLm)));
+      if (!skuMode) { total = storeMeasures(groups.flatMap((g) => g.list), true); total.share = sum(groups, (g) => g.share || 0); }
+      else {
+        const buy = new Set(); for (const g of groups) for (const b of g.buyers) buy.add(b);
+        const tg0 = sum(groups, (g) => g.tgt || 0);
+        const share = sum(groups, (g) => g.share || 0);
+        total = skuMeasures({ act: sum(groups, (g) => g.act), qty: sum(groups, (g) => g.qty), tgt: tg0, buyers: buy.size, n: total.n, lm: sum(groups, (g) => g.rlm || 0), l3m: sum(groups, (g) => g.rl3 || 0) });
+        total.hasT = tg0 > 0; total.share = share;
+      }
+    }
+    return { groups, total, mkLabel, msAvail, nStores: stores.length, nBefore, filtOn, trendOk };
 
     function storeMeasures(list) {
       const act = sum(list, (s) => s.act);
@@ -314,6 +337,41 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
     });
     return arr;
   }, [calc.groups, sort, msOn.join(',')]); // eslint-disable-line
+  // ---------- export Excel dari tampilan yang sedang terfilter ----------
+  const exportXlsx = () => {
+    const jtU = st.unit === 'jt';
+    const head = [...st.rows.map(dimLabel), ...msOn.map((id) => (mById[id].kind === 'rp' && jtU ? (labelOf(mById[id]).includes('(Rp)') ? labelOf(mById[id]).replace('(Rp)', '(jt)') : labelOf(mById[id]) + ' (jt)') : labelOf(mById[id])))];
+    const conv = (m, v, g) => {
+      if (v == null) return null;
+      if (m.kind === 'rp') { if ((m.id === 'tgt' || m.id === 'gap') && g && g.hasT === false) return null; return jtU ? v / 1e6 : v; }
+      return v;
+    };
+    const body = sorted.map((g) => [...calc.mkLabel(g.vals), ...msOn.map((id) => conv(mById[id], g[id], g))]);
+    const tot = ['TOTAL', ...Array(Math.max(0, st.rows.length - 1)).fill(''), ...msOn.map((id) => conv(mById[id], calc.total[id], calc.total))];
+    const aoa = [head, ...body, tot];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const zOf = (m) => (m.kind === 'rp' ? (jtU ? '#,##0.00' : '#,##0') : m.kind === 'pct' || m.kind === 'pace' ? '0%' : m.kind === 'qty' ? '#,##0.0' : '#,##0');
+    for (let r = 1; r < aoa.length; r++) msOn.forEach((id, c) => { const cell = ws[XLSX.utils.encode_cell({ r, c: st.rows.length + c })]; if (cell && cell.t === 'n') cell.z = zOf(mById[id]); });
+    ws['!cols'] = head.map((h, i) => ({ wch: i < st.rows.length ? Math.min(42, Math.max(14, ...body.map((r) => String(r[i] ?? '').length))) : Math.max(11, String(h).length + 2) }));
+    if (body.length) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: head.length - 1 } }) };
+    // sheet keterangan filter supaya angka bisa dilacak asalnya
+    const info = [['Jelajah Sales Monitor'], ['Depo', depot], ['Tim', teamName || team], ['Periode', data.meta?.period?.label || ''], ['Timegone', fmt.pct(tgBase, 0)], ['Pembanding', st.basis === 'same' ? 'Timegone sama (bulan lalu dan L3M x timegone)' : 'Keseluruhan (total bulan lalu dan L3M)'], ['Angka', jtU ? 'Juta rupiah' : 'Rupiah'], ['Diexport', new Date().toLocaleString('id-ID')], [], ['FILTER YANG AKTIF']];
+    if (st.who !== 'ALL') info.push(['Salesman', st.who]);
+    if (st.grp !== 'ALL') info.push(['Tim', st.grp]);
+    if (st.cov !== 'all') info.push(['Cakupan toko', { pj: 'Pareto JKS', np: 'Non-pareto', ps: 'Pareto SAK' }[st.cov]]);
+    for (const f of st.filters) if (f.vals.length) info.push([dimLabel(f.dim), f.vals.map((v) => (f.dim === 'store' ? nameOf(v) : v)).join(', ')]);
+    if (q) info.push(['Pencarian SKU', st.q.trim()]);
+    if (st.fTg !== 'all') info.push(['Capaian vs timegone', (st.fTg === 'below' ? 'Di bawah timegone' : 'Sudah di atas timegone') + ` (${fmt.pct(tgBase, 0)})`]);
+    if (st.fL3 !== 'all' && calc.trendOk) info.push(['Growth vs L3M', st.fL3 === 'up' ? 'Tumbuh (>= 100% dari L3M)' : 'Turun (< 100% dari L3M)']);
+    if (st.fLm !== 'all' && calc.trendOk) info.push(['Growth vs ' + LABELS.lm, st.fLm === 'up' ? 'Tumbuh (>= 100%)' : 'Turun (< 100%)']);
+    if (info.length === 10) info.push(['(tidak ada filter)', '']);
+    info.push([], ['Jumlah baris', `${sorted.length} dari ${calc.nBefore}`]);
+    const wi = XLSX.utils.aoa_to_sheet(info); wi['!cols'] = [{ wch: 26 }, { wch: 70 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Jelajah');
+    XLSX.utils.book_append_sheet(wb, wi, 'Filter');
+    XLSX.writeFile(wb, `Jelajah_${depot}_${team}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
   const clickSort = (k) => setSort((o) => (o.k === k ? { k, dir: -o.dir } : { k, dir: k.startsWith('d:') ? 1 : -1 }));
 
   // ---------- drag & drop ----------
@@ -354,6 +412,20 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
           <span className="mut">Cakupan toko</span>
           <Seg value={st.cov} onChange={(v) => set({ cov: v })} options={[{ v: 'all', label: 'Semua toko' }, { v: 'pj', label: 'Pareto JKS' }, { v: 'np', label: 'Non-pareto' }, { v: 'ps', label: 'Pareto SAK' }]} />
           {data.hasGroups && (<><span className="mut" style={{ marginLeft: 8 }}>Tim</span><Seg value={st.grp} onChange={(v) => set({ grp: v })} options={[{ v: 'ALL', label: 'Semua' }, ...timOpts.map((t) => ({ v: t, label: t }))]} /></>)}
+        </div>
+        <div className="opt-row">
+          <span className="mut">Capaian</span>
+          <span className="mut" style={{ fontSize: 12 }}>vs timegone ({fmt.pct(tgBase, 0)})</span>
+          <Seg value={st.fTg || 'all'} onChange={(v) => set({ fTg: v })} options={[{ v: 'all', label: 'Semua' }, { v: 'below', label: 'Di bawah' }, { v: 'above', label: 'Sudah di atas' }]} />
+          {calc.trendOk ? (
+            <>
+              <span className="mut" style={{ fontSize: 12, marginLeft: 8 }}>vs L3M</span>
+              <Seg value={st.fL3 || 'all'} onChange={(v) => set({ fL3: v })} options={[{ v: 'all', label: 'Semua' }, { v: 'up', label: 'Tumbuh' }, { v: 'down', label: 'Turun' }]} />
+              <span className="mut" style={{ fontSize: 12, marginLeft: 8 }}>vs {LABELS.lm}</span>
+              <Seg value={st.fLm || 'all'} onChange={(v) => set({ fLm: v })} options={[{ v: 'all', label: 'Semua' }, { v: 'up', label: 'Tumbuh' }, { v: 'down', label: 'Turun' }]} />
+            </>
+          ) : <span className="mut" style={{ fontSize: 12, marginLeft: 8 }}>growth vs L3M dan {LABELS.lm} di level SKU butuh file Omset per SKU tiga blok</span>}
+          {(st.fTg !== 'all' || st.fL3 !== 'all' || st.fLm !== 'all') && <button className="btn sm ghost" onClick={() => set({ fTg: 'all', fL3: 'all', fLm: 'all' })}>reset capaian</button>}
         </div>
         <div className="opt-row" style={{ alignItems: 'flex-start' }}>
           <span className="mut" style={{ paddingTop: 6 }}>Kategori fokus</span>
@@ -462,7 +534,7 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
             <Panel title="HASIL"><div className="empty"><p className="mut">Pilih minimal satu Baris dan satu Indikator.</p></div></Panel>
           ) : (
             <>
-              <Panel title="HASIL" right={<><button className="btn sm" onClick={savePreset}>Simpan preset</button> <button className="btn sm" onClick={() => setSt(DEFAULT)}>Reset</button></>} flush>
+              <Panel title="HASIL" right={<><button className="btn sm" onClick={exportXlsx} title="Download tampilan ini (sesuai filter) sebagai Excel">Export Excel</button> <button className="btn sm" onClick={savePreset}>Simpan preset</button> <button className="btn sm" onClick={() => setSt(DEFAULT)}>Reset</button></>} flush>
                 <div className="scroll">
                   <table className="t">
                     <thead>
@@ -500,7 +572,8 @@ export default function Explore({ data, time, depot, team, mode = 'milestone', b
                 </div>
                 <div className="note">
                   {st.basis === 'same' ? `Pembanding "Timegone sama": Sep/L3M × timegone (${fmt.pct(tgBase, 0)}), estimasi proporsional karena Sep dan L3M tersimpan sebagai total sebulan.` : 'Pembanding "Keseluruhan": ACT dibanding total Sep / rata-rata L3M sebulan penuh.'}
-                  {sorted.length > 500 ? ` Menampilkan 500 dari ${sorted.length} baris.` : ''}
+                  {calc.filtOn ? ` Filter capaian aktif: ${sorted.length} dari ${calc.nBefore} baris; TOTAL dihitung dari baris yang lolos filter. Baris tanpa target tidak ikut filter vs timegone, dan baris tanpa data bulan lalu / L3M tidak ikut filter growth. Growth memakai pembanding yang dipilih di atas.` : ''}
+                  {sorted.length > 500 ? ` Menampilkan 500 dari ${sorted.length} baris (Export Excel memuat semuanya).` : ''}
                 </div>
               </Panel>
             </>
